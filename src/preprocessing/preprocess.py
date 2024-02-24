@@ -110,8 +110,13 @@ def filter_dataframe(processed_df):
 
     # Remove columns where >= 0.75 values are the same
     processed_df = processed_df.loc[
+        :, processed_df.apply(lambda col: col.nunique() > 1)
+    ]
+    processed_df = processed_df.loc[
         :,
-        processed_df.apply(lambda col: col.value_counts(normalize=True).iloc[0] <= 0.75),
+        processed_df.apply(
+            lambda col: col.value_counts(normalize=True).iloc[0] <= 0.75
+        ),
     ]
 
     return processed_df
