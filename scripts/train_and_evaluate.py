@@ -28,7 +28,7 @@ def run_experiment(X, y, model_params):
 
     best_r2 = 0
     best_k = 0
-    for k in range(1, 120):
+    for k in range(1, 112):
         feature_selector = SelectKBest(k=k)
         feature_selector.fit(X_train, y_train)
         X_train_selected = feature_selector.transform(X_train)
@@ -77,16 +77,16 @@ def classify_viscosity(eta, O_min=0, O_max=4):
 
 
 if __name__ == "__main__":
-    source_data = pd.read_csv("./data/processed.csv")
-    source_data = source_data.dropna(subset=["ηmin / mPa s"])
+    source_data = pd.read_csv("./data/processed.csv", low_memory=False)
+    source_data = source_data.dropna(subset=["η / mPa s"])
 
     label_encoder = LabelEncoder()
     categorical_columns = source_data.select_dtypes(include=["object"]).columns
     for col in categorical_columns:
         source_data[col] = label_encoder.fit_transform(source_data[col])
 
-    y = source_data["ηmin / mPa s"]
-    X = source_data.drop("ηmin / mPa s", axis=1)
+    y = source_data["η / mPa s"]
+    X = source_data.drop("η / mPa s", axis=1)
 
     parser = argparse.ArgumentParser(
         description="Train and evaluate a model with feature selection."
@@ -96,6 +96,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.model == "knn":
-        model_params = {"n_neighbors": 3}  # Example parameters for kNN
+        model_params = {"n_neighbors": 5}  # Example parameters for kNN
 
         run_experiment(X, y, model_params)  # Ensure model_params is passed

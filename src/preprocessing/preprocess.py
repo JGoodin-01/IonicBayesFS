@@ -12,7 +12,20 @@ def load_workbook_sheets(file_path):
     """
     # Load the ions sheet (S2 | Ions) and database sheet (S3 | Database)
     ions_sheet = pd.read_excel(file_path, sheet_name="S2 | Ions")
-    database_sheet = pd.read_excel(file_path, sheet_name="S3 | Database")
+    database_sheet = pd.read_excel(
+        file_path,
+        sheet_name='S8 | Modeling vs "raw" database',
+        usecols=[
+            "Cation",
+            "Anion",
+            "Cationic family",
+            "Anionic family",
+            "Excluded IL",
+            "Accepted dataset",
+            "T / K",
+            "η / mPa s",
+        ],
+    )
     return ions_sheet, database_sheet
 
 
@@ -37,8 +50,9 @@ def combine_smiles(database_sheet, cation_smiles, anion_smiles):
     For each accepted ionic liquid in the database, combine the SMILES notations.
     """
     # Filter rows where 'Accepted' column is True
-    accepted_liquids = database_sheet[database_sheet["Accepted"] == True]
-
+    accepted_liquids = database_sheet[database_sheet["Accepted dataset"] == True]
+    accepted_liquids = accepted_liquids[accepted_liquids["Excluded IL"] == False]
+    
     # Combine the SMILES notations
     accepted_liquids = accepted_liquids[
         accepted_liquids["Cation"].map(cation_smiles).notnull()
@@ -99,12 +113,10 @@ def filter_dataframe(processed_df):
     """
     # Drop specific non-contributory columns
     columns_to_drop = [
-        "Dataset ID",
-        "IL ID",
         "Cation",
         "Anion",
-        "Accepted",
-        "Reference",
+        "Excluded IL",
+        "Accepted dataset",
     ]
     processed_df.drop(columns=columns_to_drop, inplace=True)
 
