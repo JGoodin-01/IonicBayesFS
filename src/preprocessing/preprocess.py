@@ -2,8 +2,8 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-RAW_FILE_PATH = "../data/raw.xlsx"
-PROCESSED_FILE_PATH = "../data/processed.csv"
+RAW_FILE_PATH = "./data/raw.xlsx"
+PROCESSED_FILE_PATH = "./data/processed.csv"
 
 
 def load_workbook_sheets(file_path):
@@ -91,6 +91,32 @@ def add_descriptors(processed_df, smiles_column):
     return enhanced_df
 
 
+def filter_dataframe(processed_df):
+    """
+    Simplify the DataFrame by removing columns that do not contribute to viscosity causation within the model.
+    This includes dropping specific non-contributory columns, removing columns where all values are the same,
+    and filtering out columns where more than 75% of the values are identical.
+    """
+    # Drop specific non-contributory columns
+    columns_to_drop = [
+        "Dataset ID",
+        "IL ID",
+        "Cation",
+        "Anion",
+        "Accepted",
+        "Reference",
+    ]
+    processed_df.drop(columns=columns_to_drop, inplace=True)
+
+    # Remove columns where >= 0.75 values are the same
+    processed_df = processed_df.loc[
+        :,
+        processed_df.apply(lambda col: col.value_counts(normalize=True).iloc[0] <= 0.75),
+    ]
+
+    return processed_df
+
+
 def main():
     try:
         ions_sheet, database_sheet = load_workbook_sheets(RAW_FILE_PATH)
@@ -99,6 +125,9 @@ def main():
         processed_data = combine_smiles(database_sheet, cation_smiles, anion_smiles)
         processed_data = add_descriptors(processed_data, "SMILES")
         print("Descriptors Successfully Added.")
+        print(f"Adjoint DF holds {len(processed_data.columns)}")
+        processed_data = filter_dataframe(processed_data)
+        print(f"Filtered DF holds {len(processed_data.columns)}")
         processed_data.to_csv(
             PROCESSED_FILE_PATH, index=False
         )  # Assuming index_label is not needed or adjust accordingly

@@ -21,5 +21,5 @@ def run_script(script_path):
 
 
 if __name__ == "__main__":
-    script_path = "../src/preprocessing/preprocess.py"
+    script_path = "./src/preprocessing/preprocess.py"
     run_script(script_path)
