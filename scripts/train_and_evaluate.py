@@ -5,47 +5,84 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
-from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.feature_selection import (
+    SelectKBest as skSelectKBest,
+    mutual_info_regression,
+    RFE as skRFE,
+)
+from sklearn.ensemble import RandomForestRegressor as skRandomForestRegressor
 from src.models.KNNModel import KNNModel
 
 
-def run_fs(X_train, X_test, y_train, y_test, fs_strategy, model, model_params):
+# Function to check CUDA availability
+def cuda_available():
+    try:
+        import cuml
+
+        return True
+    except ImportError:
+        return False
+
+
+# Conditional imports based on CUDA availability
+if cuda_available():
+    from cuml.ensemble import RandomForestRegressor as cuRandomForestRegressor
+    from cuml.feature_selection import SelectKBest as cuSelectKBest
+    from cuml.feature_selection import RFE as cuRFE
+
+    SelectKBest = cuSelectKBest
+    RandomForestRegressor = cuRandomForestRegressor
+    RFE = cuRFE
+    print("Using RAPIDS cuML for GPU acceleration.")
+else:
+    SelectKBest = skSelectKBest
+    RandomForestRegressor = skRandomForestRegressor
+    RFE = skRFE
+    print("CUDA not available. Falling back to scikit-learn.")
+
+
+def apply_feature_selection(fs_strategy, X_train, y_train):
     if fs_strategy["name"] == "SelectKBest":
         selector = SelectKBest(mutual_info_regression, k=fs_strategy["k"])
     elif fs_strategy["name"] == "RFE":
-        estimator = RandomForestRegressor(n_estimators=100)
+        estimator = RandomForestRegressor(n_estimators=2)
         selector = RFE(estimator, n_features_to_select=fs_strategy["k"])
 
     selector.fit(X_train, y_train)
     X_train_selected = selector.transform(X_train)
-    X_test_selected = selector.transform(X_test)
+    return selector, X_train_selected
 
+
+def train_and_evaluate_model(model, model_params, X_train, X_test, y_train, y_test):
     model_instance = model(**model_params)
-    model_instance.train(X_train_selected, y_train)
-    predictions = model_instance.predict(X_test_selected)
-
+    model_instance.train(X_train, y_train)
+    predictions = model_instance.predict(X_test)
     r2 = r2_score(y_test, predictions)
     mse = mean_squared_error(y_test, predictions)
-    print(f"Feature Selection Strategy: {fs_strategy['name']}, R2: {r2}, MSE: {mse}")
+    return r2, mse
 
 
-def run_experiment(X, y, model_params, feature_selection_strategies):
+def run_experiment(X, y, model, model_params, feature_selection_strategies):
     smiles = X["SMILES"]
     X = X.drop("SMILES", axis=1)
-
     imputer = SimpleImputer(strategy="mean")
     X_imputed = imputer.fit_transform(X)
-
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X_imputed)
-
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42
     )
 
+    # Iterate over feature selection strategies
     for fs_strategy in feature_selection_strategies:
-        run_fs(X_train, X_test, y_train, y_test, fs_strategy, KNNModel, model_params)
+        selector, X_train_selected = apply_feature_selection(
+            fs_strategy, X_train, y_train
+        )
+        X_test_selected = selector.transform(X_test)
+        r2, mse = train_and_evaluate_model(
+            model, model_params, X_train_selected, X_test_selected, y_train, y_test
+        )
+        print(f"Feature Selection Strat: {fs_strategy['name']}, R2: {r2}, MSE: {mse}")
 
 
 if __name__ == "__main__":
@@ -74,4 +111,4 @@ if __name__ == "__main__":
 
     if args.model == "knn":
         model_params = {"n_neighbors": 3}
-        run_experiment(X, y, model_params, feature_selection_strategies)
+        run_experiment(X, y, KNNModel, model_params, feature_selection_strategies)
