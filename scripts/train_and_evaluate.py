@@ -45,7 +45,7 @@ def apply_feature_selection(fs_strategy, X_train, y_train):
     if fs_strategy["name"] == "SelectKBest":
         selector = SelectKBest(mutual_info_regression, k=fs_strategy["k"])
     elif fs_strategy["name"] == "RFE":
-        estimator = RandomForestRegressor(n_estimators=2)
+        estimator = RandomForestRegressor(n_estimators=1)
         selector = RFE(estimator, n_features_to_select=fs_strategy["k"])
 
     selector.fit(X_train, y_train)
@@ -53,46 +53,60 @@ def apply_feature_selection(fs_strategy, X_train, y_train):
     return selector, X_train_selected
 
 
-def train_and_evaluate_model(model, model_params, X_train, X_test, y_train, y_test):
-    model_instance = model(**model_params)
-    model_instance.train(X_train, y_train)
-    predictions = model_instance.predict(X_test)
-    r2 = r2_score(y_test, predictions)
-    mse = mean_squared_error(y_test, predictions)
-    return r2, mse
-
-
 def run_experiment(X, y, model, model_params, feature_selection_strategies):
-    smiles = X["SMILES"]
+    smiles = X["SMILES"].values
     X = X.drop("SMILES", axis=1)
+
+    label_encoder = LabelEncoder()
+    categorical_columns = X.select_dtypes(include=["object"]).columns
+    for col in categorical_columns:
+        X[col] = label_encoder.fit_transform(X[col])
+
     imputer = SimpleImputer(strategy="mean")
     X_imputed = imputer.fit_transform(X)
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X_imputed)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, random_state=42
+    X_train, X_test, y_train, y_test, smiles_train, smiles_test = train_test_split(
+        X_scaled, y, smiles, test_size=0.2, random_state=42
     )
 
-    # Iterate over feature selection strategies
-    for fs_strategy in feature_selection_strategies:
-        selector, X_train_selected = apply_feature_selection(
-            fs_strategy, X_train, y_train
-        )
-        X_test_selected = selector.transform(X_test)
-        r2, mse = train_and_evaluate_model(
-            model, model_params, X_train_selected, X_test_selected, y_train, y_test
-        )
-        print(f"Feature Selection Strat: {fs_strategy['name']}, R2: {r2}, MSE: {mse}")
+    all_results_df = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
+
+    # Initialize a DataFrame to hold all the selected features
+    feature_log = pd.DataFrame(index=X.columns)
+
+    with pd.ExcelWriter("results.xlsx") as writer:
+        for fs_strategy in feature_selection_strategies:
+            selector, X_train_selected = apply_feature_selection(
+                fs_strategy, X_train, y_train
+            )
+            X_test_selected = selector.transform(X_test)
+            model_instance = model(**model_params)
+            model_instance.train(X_train_selected, y_train)
+            predictions = model_instance.predict(X_test_selected)
+
+            # Add predictions to the results DataFrame
+            all_results_df[f"{fs_strategy['name']}_Predicted"] = predictions
+
+            # Collect selected features
+            if hasattr(selector, "get_support"):
+                feature_log[fs_strategy["name"]] = pd.Series(
+                    selector.get_support(), index=X.columns
+                )
+
+            r2 = r2_score(y_test, predictions)
+            mse = mean_squared_error(y_test, predictions)
+            print(
+                f"Feature Selection Strategy: {fs_strategy['name']}, R2: {r2}, MSE: {mse}"
+            )
+
+        all_results_df.to_excel(writer, sheet_name="Results", index=False)
+        feature_log.to_excel(writer, sheet_name="Selected_Features")
 
 
 if __name__ == "__main__":
     source_data = pd.read_csv("./data/processed.csv", low_memory=False)
     source_data = source_data.dropna(subset=["η / mPa s"])
-
-    label_encoder = LabelEncoder()
-    categorical_columns = source_data.select_dtypes(include=["object"]).columns
-    for col in categorical_columns:
-        source_data[col] = label_encoder.fit_transform(source_data[col])
 
     y = source_data["η / mPa s"].values
     X = source_data.drop("η / mPa s", axis=1)
