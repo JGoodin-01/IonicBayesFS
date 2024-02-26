@@ -9,6 +9,7 @@ from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor as RandomForestRegressor
 from sklearn.neighbors import KNeighborsRegressor as skKNeighborsRegressor
 
+from src.preprocessing.BFS import BFS
 
 # Function to check CUDA availability
 def cuda_available():
@@ -38,6 +39,8 @@ def apply_feature_selection(fs_strategy, X_train, y_train):
     elif fs_strategy["name"] == "RFE":
         estimator = RandomForestRegressor(n_estimators=1)
         selector = RFE(estimator, n_features_to_select=fs_strategy["k"])
+    elif fs_strategy["name"] == "BFS":
+        selector = BFS()
 
     selector.fit(X_train, y_train)
     X_train_selected = selector.transform(X_train)
@@ -112,6 +115,7 @@ if __name__ == "__main__":
     feature_selection_strategies = [
         {"name": "SelectKBest", "k": 10},
         {"name": "RFE", "k": 10},
+        {"name": "BFS"}
     ]
 
     if args.model == "knn":
