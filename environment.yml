@@ -1,0 +1,11 @@
+name: myenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pandas
+  - rdkit
+  - openpyxl
+  - numpy
+  - scikit-learn
+  - pymc

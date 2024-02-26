@@ -5,13 +5,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
-from sklearn.feature_selection import (
-    SelectKBest as skSelectKBest,
-    mutual_info_regression,
-    RFE as skRFE,
-)
-from sklearn.ensemble import RandomForestRegressor as skRandomForestRegressor
-from src.models.KNNModel import KNNModel
+from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
+from sklearn.ensemble import RandomForestRegressor as RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor as skKNeighborsRegressor
 
 
 # Function to check CUDA availability
@@ -26,18 +22,13 @@ def cuda_available():
 
 # Conditional imports based on CUDA availability
 if cuda_available():
-    from cuml.ensemble import RandomForestRegressor as cuRandomForestRegressor
-    from cuml.feature_selection import SelectKBest as cuSelectKBest
-    from cuml.feature_selection import RFE as cuRFE
-
-    SelectKBest = cuSelectKBest
-    RandomForestRegressor = cuRandomForestRegressor
-    RFE = cuRFE
+    from cuml.neighbors import KNeighborsRegressor as cuKNeighborsRegressor
+    
+    KNeighborsRegressor = cuKNeighborsRegressor
+    
     print("Using RAPIDS cuML for GPU acceleration.")
 else:
-    SelectKBest = skSelectKBest
-    RandomForestRegressor = skRandomForestRegressor
-    RFE = skRFE
+    KNeighborsRegressor = skKNeighborsRegressor
     print("CUDA not available. Falling back to scikit-learn.")
 
 
@@ -82,7 +73,7 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
             )
             X_test_selected = selector.transform(X_test)
             model_instance = model(**model_params)
-            model_instance.train(X_train_selected, y_train)
+            model_instance.fit(X_train_selected, y_train)
             predictions = model_instance.predict(X_test_selected)
 
             # Add predictions to the results DataFrame
@@ -125,4 +116,4 @@ if __name__ == "__main__":
 
     if args.model == "knn":
         model_params = {"n_neighbors": 3}
-        run_experiment(X, y, KNNModel, model_params, feature_selection_strategies)
+        run_experiment(X, y, KNeighborsRegressor, model_params, feature_selection_strategies)
