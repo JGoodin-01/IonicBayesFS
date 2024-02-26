@@ -21,8 +21,8 @@ def run_plotting():
 if __name__ == "__main__":
     # run_preprocessing()
 
-    models = ["knn"]
-    for model in models:
-        train_and_evaluate(model)
+    # models = ["knn"]
+    # for model in models:
+    #     train_and_evaluate(model)
         
     run_plotting()

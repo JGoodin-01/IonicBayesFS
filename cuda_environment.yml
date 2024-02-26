@@ -14,4 +14,4 @@ dependencies:
   - numpy
   - scikit-learn
   - pymc
-
+  - seaborn
