@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
@@ -105,7 +106,7 @@ def add_descriptors(processed_df, smiles_column):
     return enhanced_df
 
 
-def filter_dataframe(processed_df):
+def filter_dataframe(processed_df, threshold=50):
     """
     Simplify the DataFrame by removing columns that do not contribute to viscosity causation within the model.
     This includes dropping specific non-contributory columns, removing columns where all values are the same,
@@ -130,6 +131,9 @@ def filter_dataframe(processed_df):
             lambda col: col.value_counts(normalize=True).iloc[0] <= 0.75
         ),
     ]
+    
+    for col in processed_df.select_dtypes(include=np.number):
+        processed_df = processed_df[np.abs((processed_df[col] - processed_df[col].mean()) / processed_df[col].std()) < threshold]
 
     return processed_df
 
@@ -142,9 +146,9 @@ def main():
         processed_data = combine_smiles(database_sheet, cation_smiles, anion_smiles)
         processed_data = add_descriptors(processed_data, "SMILES")
         print("Descriptors Successfully Added.")
-        print(f"Adjoint DF holds {len(processed_data.columns)}")
+        print(f"Adjoint DF holds {len(processed_data.columns)} & {len(processed_data)} rows")
         processed_data = filter_dataframe(processed_data)
-        print(f"Filtered DF holds {len(processed_data.columns)}")
+        print(f"Filtered DF holds {len(processed_data.columns)} & {len(processed_data)} rows")
         processed_data.to_csv(
             PROCESSED_FILE_PATH, index=False
         )  # Assuming index_label is not needed or adjust accordingly

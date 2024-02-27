@@ -2,6 +2,7 @@ import subprocess
 import os
 
 
+
 def run_preprocessing():
     """Run the data preprocessing script."""
     subprocess.run(["python", "./scripts/run_preprocessing.py"], check=True)
@@ -21,8 +22,8 @@ def run_plotting():
 if __name__ == "__main__":
     # run_preprocessing()
 
-    # models = ["knn"]
-    # for model in models:
-    #     train_and_evaluate(model)
+    models = ["knn"]
+    for model in models:
+        train_and_evaluate(model)
         
     run_plotting()

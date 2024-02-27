@@ -37,12 +37,15 @@ def apply_feature_selection(fs_strategy, X_train, y_train):
     if fs_strategy["name"] == "SelectKBest":
         selector = SelectKBest(mutual_info_regression, k=fs_strategy["k"])
     elif fs_strategy["name"] == "RFE":
-        estimator = RandomForestRegressor(n_estimators=1)
+        estimator = RandomForestRegressor(n_estimators=5)
         selector = RFE(estimator, n_features_to_select=fs_strategy["k"])
     elif fs_strategy["name"] == "BFS":
         selector = BFS()
 
     selector.fit(X_train, y_train)
+    if fs_strategy["name"] == "BFS":
+        selector.traceplot()
+    
     X_train_selected = selector.transform(X_train)
     return selector, X_train_selected
 
@@ -61,7 +64,7 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X_imputed)
     X_train, X_test, y_train, y_test, smiles_train, smiles_test = train_test_split(
-        X_scaled, y, smiles, test_size=0.2, random_state=42
+        X_scaled, y, smiles, test_size=0.2, random_state=10
     )
 
     all_results_df = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
@@ -113,7 +116,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     feature_selection_strategies = [
-        {"name": "SelectKBest", "k": 10},
+        {"name": "SelectKBest", "k": [2, 114]},
         {"name": "RFE", "k": 10},
         {"name": "BFS"}
     ]

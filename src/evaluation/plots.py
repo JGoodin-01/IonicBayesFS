@@ -10,9 +10,6 @@ def plot_scatter(data, entries):
     """Generate a combined scatter plot for actual vs. predicted values for each technique, including R^2 annotations."""
     plt.figure(figsize=(8, 8))
     
-    # # Optional: Define a list of colors if you want specific ones for each technique
-    # colors = plt.cm.jet(np.linspace(0, 1, len(entries)))
-    
     for i, technique in enumerate(entries):
         predicted_column = f"{technique}_Predicted"
         r2 = r2_score(data["Actual"], data[predicted_column])  # Compute R^2
@@ -61,7 +58,7 @@ def compare_performance(data, entries):
     """Compare the mean absolute error of each technique with a bar chart."""
     mae_values = [data[f"{technique}_Error"].mean() for technique in entries]
 
-    plt.bar(entries, mae_values, color=np.random.rand(len(entries), 3))
+    plt.bar(entries, mae_values)
     plt.title("Mean Absolute Error: Techniques Comparison")
     plt.ylabel("Mean Absolute Error")
 
@@ -84,30 +81,32 @@ def ensure_directory(directory_path):
         os.makedirs(directory_path)
 
 
-def determine_cluster(values):
-    clusters = []
-    for value in values:
-        O_eta = np.log(value)
-        O_eta = max(0, O_eta)  # Apply the floor (O_min)
-        O_eta = min(O_eta, 4)  # Apply the ceiling (O_max)
-        clusters.append(O_eta)
-
+def determine_cluster(values, num_clusters=5):
+    # Determine the quantile-based bins for the clusters
+    quantiles = np.linspace(0, 1, num_clusters + 1)
+    bin_edges = np.quantile(values, quantiles)
+    
+    # Assign each value to a cluster based on the bin edges
+    clusters = np.digitize(values, bin_edges, right=False)  # This assigns bins from 1 to 5
+    
+    # Offset clusters to be within the range of 0 to num_clusters - 1
+    clusters = clusters - 1
+    
     return clusters
 
 
 def plot_confusion_matrix(data, entries):
     data["True Cluster"] = determine_cluster(data["Actual"])
     data["True Cluster"] = data["True Cluster"].astype(int)
-
+    
     for technique in entries:
-        predicted_column = f"{technique}_Predicted"
         data[f"{technique} Predicted Cluster"] = determine_cluster(
-            data[predicted_column]
-        )
+                data[f"{technique}_Predicted"]
+            )
         data[f"{technique} Predicted Cluster"] = data[
             f"{technique} Predicted Cluster"
         ].astype(int)
-
+        
         true_clusters = data["True Cluster"]
         predicted_clusters = data[f"{technique} Predicted Cluster"]
         
@@ -132,9 +131,9 @@ def plot_confusion_matrix(data, entries):
         combined_mask = mask_diagonal | mask_zero_elements
         mask_non_diagonal = ~mask_diagonal
 
-        sns.set_palette("pastel")
-        sns.heatmap(cm_normalized, mask=mask_non_diagonal, annot=False, fmt=".2%", cmap="Blues", cbar=False, ax=ax)
-        sns.heatmap(cm_normalized, mask=combined_mask, annot=False, fmt=".2%", cmap="Reds", cbar=False, ax=ax)
+        sns.heatmap(cm_normalized, mask=mask_non_diagonal, annot=False, fmt=".2%", cmap=sns.light_palette("grey", as_cmap=True), cbar=False, ax=ax)
+        sns.heatmap(cm_normalized, mask=combined_mask, annot=False, fmt=".2%", cmap=sns.light_palette("red", as_cmap=True), cbar=False, ax=ax)
+
 
         # Add precision and recall to the plot
         for i in range(len(precision)):
@@ -153,8 +152,8 @@ def plot_confusion_matrix(data, entries):
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 if i < cm.shape[0] and j < cm.shape[1]:  # Inside the confusion matrix
-                    percentage = f"{cm_normalized[i, j]:.2%}"
-                    annotation = f"{int(cm[i, j])}\n({percentage})"
+                    percentage = cm[i, j] / total
+                    annotation = f"{int(cm[i, j])}\n({percentage:.2%})"
                 
                 ax.text(
                     j + 0.5,
@@ -175,11 +174,8 @@ def plot_confusion_matrix(data, entries):
         ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
         ax.tick_params(which="minor", size=0)
 
-        # Update this line to remove 'Precision' and 'Recall' from tick labels
-        ax.set_xticklabels(range(cm.shape[1]), rotation=45)
-        ax.set_yticklabels(range(cm.shape[0]), rotation=0)
-
         plt.tight_layout()
+        plt.subplots_adjust(left=0.15)
         plt.savefig(f"images/{technique}_accuracy_matrix.svg", format="svg")
 
 

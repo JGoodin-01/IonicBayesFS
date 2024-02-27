@@ -1,6 +1,8 @@
+import os
 import numpy as np
+import matplotlib as plt
 import pymc as pm
-
+import arviz as az
 
 class BFS:
     def __init__(self, priors_alpha=1.0, priors_beta=1.0, error_beta=10, mu=0, sigma=1):
@@ -12,7 +14,6 @@ class BFS:
         self.selected_features = None
 
     def model_define(self, X, y):
-        # Step 2: Model Definition
         with pm.Model() as feature_selection_model:
             # Priors on the inclusion of features
             inclusion_probs = pm.Beta(
@@ -33,11 +34,13 @@ class BFS:
             y_obs = pm.Normal("y_obs", mu=y_hat, sigma=sigma, observed=y)
 
         with feature_selection_model:
-            self.trace = pm.sample(1000, tune=1000, return_inferencedata=True)
+            self.trace = pm.sample(1000, tune=1000)
 
     def fit(self, X_train, y_train):
         # Normalize features for better convergence
         X_normalized = (X_train - np.mean(X_train, axis=0)) / np.std(X_train, axis=0)
+        X_normalized = X_normalized.astype('float32')
+        y_train = y_train.astype('float32')
 
         self.model_define(X_normalized, y_train)
 
@@ -63,3 +66,27 @@ class BFS:
         support_mask[self.selected_features] = True
         return support_mask
 
+    def traceplot(self):
+        # Ensure the 'images' directory exists
+        os.makedirs('images', exist_ok=True)
+
+        # Set the ArviZ style
+        az.style.use("arviz-darkgrid")
+        
+        # Plot trace for specified variables using ArviZ
+        var_names = ["inclusion_probs"]
+        az_trace_data = az.plot_trace(self.trace, var_names=var_names)
+        
+        # Check if plot_trace returns a tuple of (fig, ax) or just ax
+        if isinstance(az_trace_data, tuple):
+            _, ax = az_trace_data
+        else:
+            ax = az_trace_data
+        
+        # Save the ArviZ trace plot
+        for i, var_name in enumerate(var_names):
+            for j in range(2):
+                fig = ax[i, j].get_figure()
+                fig.savefig(f'images/traceplot.svg', format='svg')
+                break
+            break
