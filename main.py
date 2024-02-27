@@ -2,7 +2,6 @@ import subprocess
 import os
 
 
-
 def run_preprocessing():
     """Run the data preprocessing script."""
     subprocess.run(["python", "./scripts/run_preprocessing.py"], check=True)
