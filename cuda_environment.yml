@@ -1,0 +1,21 @@
+name: cuda_env
+channels:
+  - rapidsai
+  - conda-forge
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.10
+  - rapids=24.02
+  - cuda-version=12.0
+  - pandas
+  - rdkit
+  - openpyxl
+  - numpy
+  - scikit-learn
+  - pymc
+  - seaborn
+  - numpyro
+  - tensorflow
+  - shap
+  - matplotlib-venn
