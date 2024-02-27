@@ -1,50 +1,26 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
 RAW_FILE_PATH = "./data/raw.xlsx"
 PROCESSED_FILE_PATH = "./data/processed.csv"
 
-
 def load_workbook_sheets(file_path):
-    """
-    Load specified sheets from an Excel workbook.
-    """
-    # Load the ions sheet (S2 | Ions) and database sheet (S3 | Database)
-    ions_sheet = pd.read_excel(file_path, sheet_name="S2 | Ions")
-    database_sheet = pd.read_excel(
-        file_path,
+    # Load specified sheets from an Excel workbook at once
+    xl = pd.ExcelFile(file_path)
+    ions_sheet = xl.parse(sheet_name="S2 | Ions")
+    database_sheet = xl.parse(
         sheet_name='S8 | Modeling vs "raw" database',
-        usecols=[
-            "Cation",
-            "Anion",
-            "Cationic family",
-            "Anionic family",
-            "Excluded IL",
-            "Accepted dataset",
-            "T / K",
-            "η / mPa s",
-        ],
+        usecols=["Cation", "Anion", "Cationic family", "Anionic family", "Excluded IL", "Accepted dataset", "T / K", "η / mPa s"],
     )
     return ions_sheet, database_sheet
 
-
 def preprocess_ions_sheet(ions_sheet):
-    """
-    Preprocess the ions sheet to create a mapping of ion names to SMILES notations,
-    separating into cation and anion dictionaries.
-    """
-    # Separate the ions sheet into cations and anions based on 'Ion Type'
-    cations = ions_sheet[ions_sheet["Ion type"] == "cation"]
-    anions = ions_sheet[ions_sheet["Ion type"] == "anion"]
-
-    # Create dictionaries mapping 'Abbreviation' to 'SMILES' for both cations and anions
-    cation_smiles = cations.set_index("Abbreviation")["SMILES"].to_dict()
-    anion_smiles = anions.set_index("Abbreviation")["SMILES"].to_dict()
-
+    # Create dictionaries for cations and anions using vectorized operations
+    cation_smiles = ions_sheet[ions_sheet["Ion type"] == "cation"].set_index("Abbreviation")["SMILES"].to_dict()
+    anion_smiles = ions_sheet[ions_sheet["Ion type"] == "anion"].set_index("Abbreviation")["SMILES"].to_dict()
     return cation_smiles, anion_smiles
-
 
 def combine_smiles(database_sheet, cation_smiles, anion_smiles):
     """
@@ -68,73 +44,33 @@ def combine_smiles(database_sheet, cation_smiles, anion_smiles):
     )
     return accepted_liquids
 
-
 def compute_descriptors(smiles):
-    """
-    Computes selected RDKit descriptors for a given SMILES string.
-    """
+    # Compute descriptors using vectorized operations
+    mol = Chem.MolFromSmiles(smiles)
+    return {desc[0]: desc[1](mol) if mol else None for desc in Descriptors._descList}
 
-    molecule = Chem.MolFromSmiles(smiles)
-    if molecule is None:  # Check if the SMILES string was valid
-        return {descriptor: None for descriptor in Descriptors._descList}
-
-    descriptors = {}
-    for descriptor_name, descriptor_function in Descriptors._descList:
-        try:
-            descriptors[descriptor_name] = descriptor_function(molecule)
-        except Exception as e:
-            descriptors[descriptor_name] = (
-                None  # Handle cases where a descriptor can't be computed
-            )
-    return descriptors
-
-
-def add_descriptors(processed_df, smiles_column):
-    """
-    Aims to add RDKit descriptors to each row of accepted IL
-    """
-    descriptors_df = pd.DataFrame()
-
-    # Compute descriptors for each SMILES in the DataFrame
-    for index, row in processed_df.iterrows():
-        smiles = row[smiles_column]
-        descriptors = compute_descriptors(smiles)
-        descriptors_df = descriptors_df._append(descriptors, ignore_index=True)
-
-    enhanced_df = pd.concat([processed_df, descriptors_df], axis=1)
-
-    return enhanced_df
-
+def add_descriptors(processed_df):
+    # Add RDKit descriptors to each row of the DataFrame
+    descriptors_df = processed_df["SMILES"].apply(compute_descriptors).apply(pd.Series)
+    return pd.concat([processed_df, descriptors_df], axis=1)
 
 def filter_dataframe(processed_df, threshold=50):
-    """
-    Simplify the DataFrame by removing columns that do not contribute to viscosity causation within the model.
-    This includes dropping specific non-contributory columns, removing columns where all values are the same,
-    and filtering out columns where more than 75% of the values are identical.
-    """
-    # Drop specific non-contributory columns
-    columns_to_drop = [
-        "Cation",
-        "Anion",
-        "Excluded IL",
-        "Accepted dataset",
-    ]
+    # Simplify the DataFrame using vectorized filtering
+    columns_to_drop = ["Cation", "Anion", "Excluded IL", "Accepted dataset"]
     processed_df.drop(columns=columns_to_drop, inplace=True)
-
-    # Remove columns where >= 0.75 values are the same
-    processed_df = processed_df.loc[
-        :, processed_df.apply(lambda col: col.nunique() > 1)
-    ]
-    processed_df = processed_df.loc[
-        :,
-        processed_df.apply(
-            lambda col: col.value_counts(normalize=True).iloc[0] <= 0.75
-        ),
-    ]
     
-    for col in processed_df.select_dtypes(include=np.number):
-        processed_df = processed_df[np.abs((processed_df[col] - processed_df[col].mean()) / processed_df[col].std()) < threshold]
+    # Get boolean masks for nunique and value_counts
+    nunique_mask = processed_df.nunique() > 1
+    value_counts_mask = processed_df.apply(lambda x: max(x.value_counts(normalize=True))) <= 0.75
 
+    # Use the boolean masks to filter columns
+    processed_df = processed_df.loc[:, nunique_mask & value_counts_mask]
+
+    # Z-score filtering for numerical columns
+    for col in processed_df.select_dtypes(include='number'):
+        if processed_df[col].std() > 0:  # Prevent division by zero
+            z_scores = (processed_df[col] - processed_df[col].mean()) / processed_df[col].std()
+            processed_df = processed_df[(np.abs(z_scores) < threshold)]
     return processed_df
 
 
@@ -142,20 +78,17 @@ def main():
     try:
         ions_sheet, database_sheet = load_workbook_sheets(RAW_FILE_PATH)
         cation_smiles, anion_smiles = preprocess_ions_sheet(ions_sheet)
-        print("Ions Categories Split Successfully.")
+        print("Ions categories split successfully.")
         processed_data = combine_smiles(database_sheet, cation_smiles, anion_smiles)
-        processed_data = add_descriptors(processed_data, "SMILES")
-        print("Descriptors Successfully Added.")
-        print(f"Adjoint DF holds {len(processed_data.columns)} & {len(processed_data)} rows")
+        print("Added SMILES")
+        processed_data = add_descriptors(processed_data)
+        print("Descriptors successfully added.")
         processed_data = filter_dataframe(processed_data)
-        print(f"Filtered DF holds {len(processed_data.columns)} & {len(processed_data)} rows")
-        processed_data.to_csv(
-            PROCESSED_FILE_PATH, index=False
-        )  # Assuming index_label is not needed or adjust accordingly
-        print("CSV Successfully Produced.")
+        print(f"Filtered DataFrame holds {processed_data.shape[1]} columns & {processed_data.shape[0]} rows.")
+        processed_data.to_csv(PROCESSED_FILE_PATH, index=False)
+        print("CSV successfully produced.")
     except Exception as e:
-        print(f"An error occurred: {e}")
-
+        print(f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     main()
