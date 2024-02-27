@@ -1,84 +1,61 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib_venn import venn3
-import seaborn as sns
 import os
-from sklearn.metrics import r2_score, confusion_matrix, precision_score, recall_score
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib_venn import venn2, venn3
+from sklearn.metrics import (
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    r2_score,
+)
+from functools import wraps
 
 
-def plot_scatter(data, entries):
-    """Generate a combined scatter plot for actual vs. predicted values for each technique, including R^2 annotations."""
-    plt.figure(figsize=(8, 8))
-    
-    for i, technique in enumerate(entries):
-        predicted_column = f"{technique}_Predicted"
-        r2 = r2_score(data["Actual"], data[predicted_column])  # Compute R^2
+def plot_wrapper(figsize=(8, 6), xlabel="", ylabel="", scale=None, directory="images", filename="image.svg", dynamic_params_func=None):
+    def decorator(plot_func):
+        @wraps(plot_func)
+        def wrapper(*args, **kwargs):
+            # Dynamic parameter processing
+            if dynamic_params_func is not None:
+                dynamic_params = dynamic_params_func(*args, **kwargs)
+                dynamic_filename = dynamic_params.get("filename", filename)  # Use a different variable
+            else:
+                dynamic_filename = filename
 
-        plt.scatter(data["Actual"], data[predicted_column], alpha=0.5, label=f'{technique} (R^2 = {r2:.2f})')
-    
-    # Plotting the identity line for reference
-    plt.plot(
-        [data["Actual"].min(), data["Actual"].max()],
-        [data["Actual"].min(), data["Actual"].max()],
-        "k--",
-        lw=2,
-    )
-    
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.xlabel("Actual")
-    plt.ylabel("Predicted")
-    plt.legend(loc="best")  # Show legend to identify each technique
-    
-    # Save the combined plot
-    plt.savefig("images/Combined_Actual_vs_Predicted_R2.svg", format="svg")
-    plt.close()
+            if figsize is not None:
+                plt.figure(figsize=figsize)
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            if scale is not None:
+                plt.yscale(scale)
+                plt.xscale(scale)
 
+            plot_func(*args, **kwargs)
+            
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            plt.savefig(os.path.join(directory, dynamic_filename), format='svg')  # Use the dynamically determined filename
+            plt.close()
 
-def plot_error_distribution(data, entries):
-    """Plot the error distribution for each technique."""
-    plt.figure(figsize=(14, 6))
-
-    for technique in entries:
-        error_column = f"{technique}_Error"
-        plt.plot(data[error_column], label=f"{technique} Error", alpha=0.7)
-
-    plt.title("Error Distribution: Techniques Comparison")
-    plt.xlabel("Sample Index")
-    plt.ylabel("Absolute Error")
-    plt.legend()
-
-    # Save the plot
-    plt.savefig("images/Error_Distribution_Techniques_Comparison.svg", format="svg")
-    plt.close()
+        return wrapper
+    return decorator
 
 
-def compare_performance(data, entries):
-    """Compare the mean absolute error of each technique with a bar chart."""
-    mae_values = [data[f"{technique}_Error"].mean() for technique in entries]
-
-    plt.bar(entries, mae_values)
-    plt.title("Mean Absolute Error: Techniques Comparison")
-    plt.ylabel("Mean Absolute Error")
-
-    # Save the plot
-    plt.savefig("images/MAE_Comparison_Techniques.svg", format="svg")
-    plt.close()
-
-
-def calculate_errors(data, entries):
+def calculate_errors(data, techniques):
     """Calculate absolute errors for each feature selection technique."""
-    for technique in entries:
+    for technique in techniques:
         predicted_column = f"{technique}_Predicted"
         data[f"{technique}_Error"] = np.abs(data["Actual"] - data[predicted_column])
     return data
 
 
-def ensure_directory(directory_path):
-    """Ensure that the specified directory exists; create it if it doesn't."""
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
+def confusion_matrices(data, techniques):
+    data["True Cluster"] = determine_cluster(data["Actual"]).astype(int)
+    
+    for technique in techniques:
+        plot_confusion_matrix(data, technique)
 
 
 def determine_cluster(values, num_clusters=5):
@@ -95,116 +72,134 @@ def determine_cluster(values, num_clusters=5):
     return clusters
 
 
-def plot_confusion_matrix(data, entries):
-    data["True Cluster"] = determine_cluster(data["Actual"])
-    data["True Cluster"] = data["True Cluster"].astype(int)
-    
-    for technique in entries:
-        data[f"{technique} Predicted Cluster"] = determine_cluster(
+@plot_wrapper(figsize=None, xlabel="Predicted O(η)", ylabel="True O(η)", dynamic_params_func=lambda data, technique: {"filename": f"{technique}_confusion_matrix.svg"})
+def plot_confusion_matrix(data, technique, **kwargs):
+    data[f"{technique} Predicted Cluster"] = determine_cluster(
                 data[f"{technique}_Predicted"]
+            ).astype(int)
+        
+    true_clusters = data["True Cluster"]
+    predicted_clusters = data[f"{technique} Predicted Cluster"]
+    
+    # Compute confusion matrix and related metrics
+    cm = confusion_matrix(true_clusters, predicted_clusters, labels=[0, 1, 2, 3, 4])
+    cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+    precision = precision_score(true_clusters, predicted_clusters, average=None, labels=[0, 1, 2, 3, 4], zero_division=0)
+    recall = recall_score(true_clusters, predicted_clusters, average=None, labels=[0, 1, 2, 3, 4], zero_division=0)
+    overall_accuracy = np.trace(cm) / cm.sum()
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+
+    mask_diagonal = np.eye(cm.shape[0], dtype=bool)
+    mask_zero_elements = cm == 0
+    combined_mask = mask_diagonal | mask_zero_elements
+    mask_non_diagonal = ~mask_diagonal
+
+    sns.heatmap(cm_normalized, mask=mask_non_diagonal, annot=False, fmt=".2%", cmap=sns.light_palette("grey", as_cmap=True), cbar=False, ax=ax)
+    sns.heatmap(cm_normalized, mask=combined_mask, annot=False, fmt=".2%", cmap=sns.light_palette("red", as_cmap=True), cbar=False, ax=ax)
+
+    # Add precision and recall to the plot
+    for i in range(len(precision)):
+        off_precision = 1 - precision[i]
+        ax.text(i + 0.5, len(recall) + 0.5, f"{precision[i]:.2%}", ha="center", va="center", color="blue")
+        ax.text(i + 0.5, len(recall) + 0.7, f"{off_precision:.2%}", ha="center", va="center", color="red")
+        off_recall = 1 - recall[i]
+        ax.text(len(precision) + 0.5, i + 0.5, f"{recall[i]:.2%}", ha="center", va="center", color="blue")
+        ax.text(len(precision) + 0.5, i + 0.7, f"{off_recall:.2%}", ha="center", va="center", color="red")
+
+    # Add overall accuracy to the bottom right
+    off_accuracy = 1 - overall_accuracy
+    ax.text(len(precision) + 0.5, len(recall) + 0.5, f"{overall_accuracy:.2%}", ha="center", va="center", color="blue")
+    ax.text(len(precision) + 0.5, len(recall) + 0.7, f"{off_accuracy:.2%}", ha="center", va="center", color="red")
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            if i < cm.shape[0] and j < cm.shape[1]:  # Inside the confusion matrix
+                percentage = cm[i, j] / cm.sum()
+                annotation = f"{int(cm[i, j])}\n({percentage:.2%})"
+            
+            ax.text(
+                j + 0.5,
+                i + 0.5,
+                annotation,
+                ha="center",
+                va="center",
+                color="black"
             )
-        data[f"{technique} Predicted Cluster"] = data[
-            f"{technique} Predicted Cluster"
-        ].astype(int)
-        
-        true_clusters = data["True Cluster"]
-        predicted_clusters = data[f"{technique} Predicted Cluster"]
-        
-        # Calculate the confusion matrix for the entire dataset
-        cm = confusion_matrix(true_clusters, predicted_clusters, labels=[0, 1, 2, 3, 4])
+    
+    # Just use the range for the number of classes in the confusion matrix
+    ax.set_xticks(np.arange(cm.shape[1]) - .5, minor=True)
+    ax.set_yticks(np.arange(cm.shape[0]) - .5, minor=True)
+    ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
+    ax.tick_params(which="minor", size=0)
 
-        # Normalize the confusion matrix
-        cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
-        total = np.sum(cm)  # Total number of instances
-
-        # Calculate precision and recall for each class
-        precision = precision_score(true_clusters, predicted_clusters, average=None, labels=[0, 1, 2, 3, 4], zero_division=0)
-        recall = recall_score(true_clusters, predicted_clusters, average=None, labels=[0, 1, 2, 3, 4], zero_division=0)
-
-        # Calculate overall accuracy
-        overall_accuracy = np.trace(cm) / total
-
-        fig, ax = plt.subplots(figsize=(9, 7))
-
-        mask_diagonal = np.eye(cm.shape[0], dtype=bool)
-        mask_zero_elements = cm == 0
-        combined_mask = mask_diagonal | mask_zero_elements
-        mask_non_diagonal = ~mask_diagonal
-
-        sns.heatmap(cm_normalized, mask=mask_non_diagonal, annot=False, fmt=".2%", cmap=sns.light_palette("grey", as_cmap=True), cbar=False, ax=ax)
-        sns.heatmap(cm_normalized, mask=combined_mask, annot=False, fmt=".2%", cmap=sns.light_palette("red", as_cmap=True), cbar=False, ax=ax)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.15)
 
 
-        # Add precision and recall to the plot
-        for i in range(len(precision)):
-            off_precision = 1 - precision[i]
-            ax.text(i + 0.5, len(recall) + 0.5, f"{precision[i]:.2%}", ha="center", va="center", color="blue")
-            ax.text(i + 0.5, len(recall) + 0.7, f"{off_precision:.2%}", ha="center", va="center", color="red")
-            off_recall = 1 - recall[i]
-            ax.text(len(precision) + 0.5, i + 0.5, f"{recall[i]:.2%}", ha="center", va="center", color="blue")
-            ax.text(len(precision) + 0.5, i + 0.7, f"{off_recall:.2%}", ha="center", va="center", color="red")
-
-        # Add overall accuracy to the bottom right
-        off_accuracy = 1 - overall_accuracy
-        ax.text(len(precision) + 0.5, len(recall) + 0.5, f"{overall_accuracy:.2%}", ha="center", va="center", color="blue")
-        ax.text(len(precision) + 0.5, len(recall) + 0.7, f"{off_accuracy:.2%}", ha="center", va="center", color="red")
-
-        for i in range(cm.shape[0]):
-            for j in range(cm.shape[1]):
-                if i < cm.shape[0] and j < cm.shape[1]:  # Inside the confusion matrix
-                    percentage = cm[i, j] / total
-                    annotation = f"{int(cm[i, j])}\n({percentage:.2%})"
-                
-                ax.text(
-                    j + 0.5,
-                    i + 0.5,
-                    annotation,
-                    ha="center",
-                    va="center",
-                    color="black"
-                )
-
-        # Set the labels for the axes
-        ax.set_xlabel("Predicted O(η)")
-        ax.set_ylabel("True O(η)")
-        
-        # Just use the range for the number of classes in the confusion matrix
-        ax.set_xticks(np.arange(cm.shape[1]) - .5, minor=True)
-        ax.set_yticks(np.arange(cm.shape[0]) - .5, minor=True)
-        ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
-        ax.tick_params(which="minor", size=0)
-
-        plt.tight_layout()
-        plt.subplots_adjust(left=0.15)
-        plt.savefig(f"images/{technique}_accuracy_matrix.svg", format="svg")
-        plt.close()
-
-
-def plot_feature_correspondance(data):
+@plot_wrapper(filename="venn.svg")
+def plot_feature_correspondance(data, techniques):
     data = data == True
 
-    # Calculate the number of features selected by each technique
-    selectkbest_selected = data['SelectKBest'].sum()
-    rfe_selected = data['RFE'].sum()
-    bfs_selected = data['BFS'].sum()
+    assert 1 < len(techniques) <= 3, "This function supports 2 or 3 techniques for Venn diagrams."
+    
+    # Initialize selections and subsets for Venn diagram
+    selections = {tech: data[tech].sum() for tech in techniques}
+    subsets = [selections[tech] for tech in techniques]
+    intersections = {}
 
-    # Calculate the intersections between the techniques
-    selectkbest_rfe_intersection = data[data['SelectKBest'] & data['RFE']].shape[0]
-    selectkbest_bfs_intersection = data[data['SelectKBest'] & data['BFS']].shape[0]
-    rfe_bfs_intersection = data[data['RFE'] & data['BFS']].shape[0]
-    all_three_intersection = data[data['SelectKBest'] & data['RFE'] & data['BFS']].shape[0]
+    # Calculate intersections
+    for i, tech1 in enumerate(techniques):
+        for j, tech2 in enumerate(techniques[i+1:], i+1):
+            intersection_key = f'{tech1}_{tech2}'
+            intersections[intersection_key] = data[data[tech1] & data[tech2]].shape[0]
+            
+            if len(techniques) == 3 and j < len(techniques) - 1:
+                for k, tech3 in enumerate(techniques[j+1:], j+1):
+                    all_intersection_key = f'{tech1}_{tech2}_{tech3}'
+                    intersections[all_intersection_key] = data[data[tech1] & data[tech2] & data[tech3]].shape[0]
 
-    # Now plot a Venn diagram
-    venn_diagram = venn3(subsets = (selectkbest_selected, rfe_selected, selectkbest_rfe_intersection, 
-                                     bfs_selected, selectkbest_bfs_intersection, rfe_bfs_intersection, 
-                                     all_three_intersection), 
-                          set_labels = ('SelectKBest', 'RFE', 'BFS'))
+    # For 2 techniques, adjust subsets list directly
+    if len(techniques) == 2:
+        subsets.append(intersections[next(iter(intersections))])  # Only intersection for 2 techniques
+        venn_diagram = venn2(subsets=subsets, set_labels=techniques)
+    # For 3 techniques, create subsets list based on the order required by venn3
+    elif len(techniques) == 3:
+        tech1, tech2, tech3 = techniques
+        subsets = [
+            selections[tech1], selections[tech2], intersections[f'{tech1}_{tech2}'],
+            selections[tech3], intersections[f'{tech1}_{tech3}'], intersections[f'{tech2}_{tech3}'],
+            intersections[f'{tech1}_{tech2}_{tech3}']
+        ]
+        venn_diagram = venn3(subsets=subsets, set_labels=techniques)
 
-    for patch in venn_diagram.patches:
-        if patch is not None:
-            patch.set_edgecolor('black')
+    # Adjust font sizes for readability
+    for text in venn_diagram.set_labels:
+        if text: text.set_fontsize(14)
+    for text in venn_diagram.subset_labels:
+        if text: text.set_fontsize(12)
 
-    plt.savefig(f"images/venn.svg", format="svg")  # Save in the current directory
+
+@plot_wrapper(ylabel="Mean Absolute Error", filename="MAE_Comparison_Techniques.svg")
+def plot_mae(data, techniques):
+    """Compare the mean absolute error of each technique with a bar chart."""
+    
+    mae_values = [data[f"{technique}_Error"].mean() for technique in techniques]
+    plt.bar(techniques, mae_values)
+
+
+@plot_wrapper(xlabel="Actual", ylabel="Predicted", scale="log", filename="Combined_Actual_vs_Predicted_R2.svg")
+def plot_scatter(data, techniques):
+    """Generate a combined scatter plot for actual vs. predicted values for each technique, including R^2 annotations."""
+    
+    for technique in techniques:
+        predicted_column = f"{technique}_Predicted"
+        r2 = r2_score(data["Actual"], data[predicted_column])  # Compute R^2
+        plt.scatter(data["Actual"], data[predicted_column], alpha=0.5, label=f'{technique} (R² = {r2:.2f})')
+    
+    # Plotting the identity line in a more compact form
+    plt.plot([min(data["Actual"]), max(data["Actual"])], [min(data["Actual"]), max(data["Actual"])], "k--", lw=2)
+    plt.legend(loc="best")  # Show legend to identify each technique
 
 
 def main():
@@ -219,19 +214,14 @@ def main():
     # Calculate errors for each technique
     pred_data = calculate_errors(pred_data, techniques)
 
-    # Ensure the images directory exists
-    images_dir = "images"
-    ensure_directory(images_dir)
-
     # Generate plots
     plot_scatter(pred_data, techniques)
-    plot_error_distribution(pred_data, techniques)
-    compare_performance(pred_data, techniques)
+    plot_mae(pred_data, techniques)
+    plot_feature_correspondance(feature_data, techniques)
 
-    # Plot the confusion matrix
-    plot_confusion_matrix(pred_data, techniques)
+    # Plot the confusion matricess
+    confusion_matrices(pred_data, techniques)
 
-    plot_feature_correspondance(feature_data)
 
 if __name__ == "__main__":
     main()
