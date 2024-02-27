@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib_venn import venn3
 import seaborn as sns
 import os
 from sklearn.metrics import r2_score, confusion_matrix, precision_score, recall_score
@@ -32,7 +33,6 @@ def plot_scatter(data, entries):
     
     # Save the combined plot
     plt.savefig("images/Combined_Actual_vs_Predicted_R2.svg", format="svg")
-    plt.show()
     plt.close()
 
 
@@ -177,31 +177,61 @@ def plot_confusion_matrix(data, entries):
         plt.tight_layout()
         plt.subplots_adjust(left=0.15)
         plt.savefig(f"images/{technique}_accuracy_matrix.svg", format="svg")
+        plt.close()
+
+
+def plot_feature_correspondance(data):
+    data = data == True
+
+    # Calculate the number of features selected by each technique
+    selectkbest_selected = data['SelectKBest'].sum()
+    rfe_selected = data['RFE'].sum()
+    bfs_selected = data['BFS'].sum()
+
+    # Calculate the intersections between the techniques
+    selectkbest_rfe_intersection = data[data['SelectKBest'] & data['RFE']].shape[0]
+    selectkbest_bfs_intersection = data[data['SelectKBest'] & data['BFS']].shape[0]
+    rfe_bfs_intersection = data[data['RFE'] & data['BFS']].shape[0]
+    all_three_intersection = data[data['SelectKBest'] & data['RFE'] & data['BFS']].shape[0]
+
+    # Now plot a Venn diagram
+    venn_diagram = venn3(subsets = (selectkbest_selected, rfe_selected, selectkbest_rfe_intersection, 
+                                     bfs_selected, selectkbest_bfs_intersection, rfe_bfs_intersection, 
+                                     all_three_intersection), 
+                          set_labels = ('SelectKBest', 'RFE', 'BFS'))
+
+    for patch in venn_diagram.patches:
+        if patch is not None:
+            patch.set_edgecolor('black')
+
+    plt.savefig(f"images/venn.svg", format="svg")  # Save in the current directory
 
 
 def main():
     file_path = "./results.xlsx"
-    data = pd.read_excel(file_path)
+    pred_data = pd.read_excel(file_path, sheet_name="Results")
+    feature_data = pd.read_excel(file_path, sheet_name="Selected_Features")
 
     # Identify the feature selection techniques based on the column names
-    prediction_columns = [col for col in data.columns if "_Predicted" in col]
+    prediction_columns = [col for col in pred_data.columns if "_Predicted" in col]
     techniques = [col.replace("_Predicted", "") for col in prediction_columns]
 
     # Calculate errors for each technique
-    data = calculate_errors(data, techniques)
+    pred_data = calculate_errors(pred_data, techniques)
 
     # Ensure the images directory exists
     images_dir = "images"
     ensure_directory(images_dir)
 
     # Generate plots
-    plot_scatter(data, techniques)
-    plot_error_distribution(data, techniques)
-    compare_performance(data, techniques)
+    plot_scatter(pred_data, techniques)
+    plot_error_distribution(pred_data, techniques)
+    compare_performance(pred_data, techniques)
 
     # Plot the confusion matrix
-    plot_confusion_matrix(data, techniques)
+    plot_confusion_matrix(pred_data, techniques)
 
+    plot_feature_correspondance(feature_data)
 
 if __name__ == "__main__":
     main()

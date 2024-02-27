@@ -17,3 +17,5 @@ dependencies:
   - seaborn
   - numpyro
   - tensorflow
+  - shap
+  - matplotlib-venn

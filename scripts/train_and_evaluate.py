@@ -87,9 +87,8 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
 
             # Collect selected features
             if hasattr(selector, "get_support"):
-                feature_log[fs_strategy["name"]] = pd.Series(
-                    selector.get_support(), index=X.columns
-                )
+                selected_features_mask = selector.get_support()
+                feature_log[fs_strategy["name"]] = pd.Series(selected_features_mask, index=X.columns)
 
             r2 = r2_score(y_test, predictions)
             mse = mean_squared_error(y_test, predictions)
@@ -116,7 +115,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     feature_selection_strategies = [
-        {"name": "SelectKBest", "k": [2, 114]},
+        {"name": "SelectKBest", "k": 8},
         {"name": "RFE", "k": 10},
         {"name": "BFS"}
     ]
