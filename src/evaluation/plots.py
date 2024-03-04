@@ -112,7 +112,7 @@ def plot_confusion_matrix(data, technique, **kwargs):
     This results in a plot with what should be 5x5 matrix with the diagonal representing the TRUE predicted classes.
 
     Args:
-        data (pd.Dataframe): Dataframe of the entire resulting dataset.
+        data (pd.DataFrame): DataFrame of the entire resulting dataset.
         technique (string): Label for what feature selection technique we are looking at.
     """
     data[f"{technique} Predicted Cluster"] = determine_cluster(
@@ -250,7 +250,7 @@ def plot_feature_correspondance(data, techniques):
     This is done via Venn Diagram and is limited to 2-3 techniques/
 
     Args:
-        data (pd.Dataframe): Input DF that details which features where chosen by what feature selection technique.
+        data (pd.DataFrame): Input DF that details which features where chosen by what feature selection technique.
         techniques (List): Listing of the different techniques to iterate through.
     """
     data = data == True
