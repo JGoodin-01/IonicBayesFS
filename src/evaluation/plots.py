@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib_venn import venn2, venn3
+# from matplotlib_venn import venn2, venn3
 from sklearn.metrics import (
     confusion_matrix,
     precision_score,
@@ -137,6 +137,7 @@ def plot_confusion_matrix(data, technique, **kwargs):
     plt.subplots_adjust(left=0.15)
 
 
+<<<<<<< Updated upstream
 @plot_wrapper(filename="venn.svg")
 def plot_feature_correspondance(data, techniques):
     data = data == True
@@ -178,6 +179,69 @@ def plot_feature_correspondance(data, techniques):
         if text: text.set_fontsize(14)
     for text in venn_diagram.subset_labels:
         if text: text.set_fontsize(12)
+=======
+# @plot_wrapper(filename="venn.svg")
+# def plot_feature_correspondance(data, techniques):
+#     """
+#     Plots correspondance between data features chosen by X techniques.
+#     This is done via Venn Diagram and is limited to 2-3 techniques/
+
+#     Args:
+#         data (pd.DataFrame): Input DF that details which features where chosen by what feature selection technique.
+#         techniques (List): Listing of the different techniques to iterate through.
+#     """
+#     data = data == True
+
+#     assert (
+#         1 < len(techniques) <= 3
+#     ), "This function supports 2 or 3 techniques for Venn diagrams."
+
+#     # Initialize selections and subsets for Venn diagram
+#     selections = {tech: data[tech].sum() for tech in techniques}
+#     subsets = [selections[tech] for tech in techniques]
+#     intersections = {}
+
+#     # Calculate intersections
+#     for i, tech1 in enumerate(techniques):
+#         for j, tech2 in enumerate(techniques[i + 1 :], i + 1):
+#             intersection_key = f"{tech1}_{tech2}"
+#             intersections[intersection_key] = data[data[tech1] & data[tech2]].shape[0]
+
+#             if len(techniques) == 3 and j < len(techniques) - 1:
+#                 for k, tech3 in enumerate(techniques[j + 1 :], j + 1):
+#                     all_intersection_key = f"{tech1}_{tech2}_{tech3}"
+#                     intersections[all_intersection_key] = data[
+#                         data[tech1] & data[tech2] & data[tech3]
+#                     ].shape[0]
+
+#     # For 2 techniques, adjust subsets list directly
+#     if len(techniques) == 2:
+#         subsets.append(
+#             intersections[next(iter(intersections))]
+#         )  # Only intersection for 2 techniques
+#         venn_diagram = venn2(subsets=subsets, set_labels=techniques)
+#     # For 3 techniques, create subsets list based on the order required by venn3
+#     elif len(techniques) == 3:
+#         tech1, tech2, tech3 = techniques
+#         subsets = [
+#             selections[tech1],
+#             selections[tech2],
+#             intersections[f"{tech1}_{tech2}"],
+#             selections[tech3],
+#             intersections[f"{tech1}_{tech3}"],
+#             intersections[f"{tech2}_{tech3}"],
+#             intersections[f"{tech1}_{tech2}_{tech3}"],
+#         ]
+#         venn_diagram = venn3(subsets=subsets, set_labels=techniques)
+
+#     # Adjust font sizes for readability
+#     for text in venn_diagram.set_labels:
+#         if text:
+#             text.set_fontsize(14)
+#     for text in venn_diagram.subset_labels:
+#         if text:
+#             text.set_fontsize(12)
+>>>>>>> Stashed changes
 
 
 @plot_wrapper(ylabel="Mean Absolute Error", filename="MAE_Comparison_Techniques.svg")
@@ -217,7 +281,7 @@ def main():
     # Generate plots
     plot_scatter(pred_data, techniques)
     plot_mae(pred_data, techniques)
-    plot_feature_correspondance(feature_data, techniques)
+    # plot_feature_correspondance(feature_data, techniques)
 
     # Plot the confusion matricess
     confusion_matrices(pred_data, techniques)

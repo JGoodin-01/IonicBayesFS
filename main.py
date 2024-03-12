@@ -19,9 +19,9 @@ def run_plotting():
     subprocess.run(["python", "./scripts/run_plotting.py"], check=True)
 
 if __name__ == "__main__":
-    run_preprocessing()
+    # run_preprocessing()
 
-    models = ["knn"]
+    models = ["rf"]
     for model in models:
         train_and_evaluate(model)
         
