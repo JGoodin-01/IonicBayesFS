@@ -8,13 +8,28 @@ from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neighbors import KNeighborsRegressor as skKNeighborsRegressor
 from src.preprocessing.BFS import BFS
+import subprocess
+import sys
 
-try:
+
+# Function to check CUDA availability
+def cuda_available():
+    try:
+        import cuml
+
+        return True
+    except ImportError:
+        return False
+
+
+# Conditional imports based on CUDA availability
+if cuda_available():
     from cuml.neighbors import KNeighborsRegressor as cuKNeighborsRegressor
-
+    
     KNeighborsRegressor = cuKNeighborsRegressor
+    
     print("Using RAPIDS cuML for GPU acceleration.")
-except ImportError:
+else:
     KNeighborsRegressor = skKNeighborsRegressor
     print("CUDA not available. Falling back to scikit-learn.")
 
@@ -41,41 +56,62 @@ def apply_feature_selection(fs_strategy, X, y):
     return selector.transform(X), selector
 
 
-def preprocess_data(X):
-    # Encode categorical features
-    for col in X.select_dtypes(include=["object"]).columns:
-        X[col] = LabelEncoder().fit_transform(X[col])
-
-    imputer = SimpleImputer(strategy="mean")
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(imputer.fit_transform(X))
-
-    return X_scaled
-
-
 def run_experiment(X, y, model, model_params, feature_selection_strategies):
-    X = preprocess_data(X.drop("SMILES", axis=1))
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=10
-    )
+    def preprocess_features(X):
+        """Encode categorical variables and scale numerical features."""
+        for col in X.select_dtypes(include=["object"]).columns:
+            X[col] = LabelEncoder().fit_transform(X[col])
+        imputer = SimpleImputer(strategy="mean")
+        scaler = MinMaxScaler()
+        return scaler.fit_transform(imputer.fit_transform(X))
 
-    results = []
-    for fs_strategy in feature_selection_strategies:
-        X_train_fs, selector = apply_feature_selection(fs_strategy, X_train, y_train)
-        if selector is not None:
-            X_test_fs = selector.transform(X_test)
-        else:
-            X_test_fs = X_test
-
+    def evaluate_model(X_train_fs, X_test_fs, y_train, y_test):
+        """Fit the model and evaluate it on the test set."""
         model_instance = model(**model_params)
         model_instance.fit(X_train_fs, y_train)
         predictions = model_instance.predict(X_test_fs)
+        r2 = r2_score(y_test, predictions)
+        mse = mean_squared_error(y_test, predictions)
+        return predictions, r2, mse
 
-        r2, mse = r2_score(y_test, predictions), mean_squared_error(y_test, predictions)
-        results.append((fs_strategy["name"], r2, mse))
-        print(f"{fs_strategy['name']}: R2={r2}, MSE={mse}")
+    # Main experiment logic starts here
+    smiles = X["SMILES"].values
+    X = X.drop("SMILES", axis=1)
+    X_scaled = preprocess_features(X)
+    X_train, X_test, y_train, y_test, _, smiles_test = train_test_split(
+        X_scaled, y, smiles, test_size=0.2, random_state=10
+    )
 
-    return results
+    results_log = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
+    features_log = pd.DataFrame(index=X.columns)
+    metrics_log = pd.DataFrame()
+    with pd.ExcelWriter("results.xlsx") as writer:
+        for fs_strategy in feature_selection_strategies:
+            X_train_fs, selector = apply_feature_selection(
+                fs_strategy, X_train, y_train
+            )
+            X_test_fs = selector.transform(X_test) if selector else X_test
+
+            predictions, r2, mse = evaluate_model(
+                X_train_fs, X_test_fs, y_train, y_test
+            )
+            print(f"{fs_strategy['name']}: R2={r2}, MSE={mse}")
+
+            results_log[f"{fs_strategy['name']}_Predicted"] = predictions
+            features_log[fs_strategy["name"]] = pd.Series(
+                (
+                    selector.get_support()
+                    if selector and hasattr(selector, "get_support")
+                    else [True] * X_train_fs.shape[1]
+                ),
+                index=X.columns,
+            )
+            metrics_log[fs_strategy["name"]] = {"R2": r2, "MSE": mse}
+
+        # Save logs to Excel
+        results_log.to_excel(writer, sheet_name="Predictions", index=False)
+        features_log.to_excel(writer, sheet_name="Selected_Features")
+        metrics_log.T.to_excel(writer, sheet_name="Metrics")
 
 
 if __name__ == "__main__":
@@ -100,13 +136,11 @@ if __name__ == "__main__":
     elif args.model == "rf":
         model = RandomForestRegressor
         model_params = {
-            "n_estimators": 100,  
+            "n_estimators": 100,
             "max_depth": None,  # None means nodes are expanded until all leaves are pure or contain < min_samples_split samples
             "min_samples_split": 2,
             "min_samples_leaf": 1,
-            "max_features": "sqrt"
+            "max_features": "sqrt",
         }
 
-    run_experiment(
-        X, y, model, model_params, feature_selection_strategies
-    )
+    run_experiment(X, y, model, model_params, feature_selection_strategies)
