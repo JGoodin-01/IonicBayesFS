@@ -87,6 +87,6 @@ class BFS:
         for i, var_name in enumerate(var_names):
             for j in range(2):
                 fig = ax[i, j].get_figure()
-                fig.savefig(f'images/traceplot.svg', format='svg')
+                fig.savefig(f'images/traceplot.png', format='png')
                 break
             break

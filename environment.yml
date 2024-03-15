@@ -11,3 +11,4 @@ dependencies:
   - pymc
   - seaborn
   - shap
+  - scikit-optimize
