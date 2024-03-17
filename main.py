@@ -23,7 +23,7 @@ def run_plotting():
 if __name__ == "__main__":
     run_preprocessing()
 
-    models = ["rf"]
+    models = ["lr", "rf"]
     for model in models:
         train_and_evaluate(model)
 

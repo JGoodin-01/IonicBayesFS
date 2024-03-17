@@ -8,6 +8,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from src.preprocessing.BFS import BFS
 
 
@@ -15,6 +16,7 @@ from src.preprocessing.BFS import BFS
 def cuda_available():
     try:
         import cuml
+
         return True
     except ImportError:
         return False
@@ -27,13 +29,20 @@ else:
 
 
 EXPERIMENT_CONFIGS = {
+    "lr": {
+        "model": LinearRegression,
+        "param_grid": {},
+    },
     "rf": {
         "model": RandomForestRegressor,
         "param_grid": {
-            "n_estimators": [10, 50, 100],
-            "max_depth": [None, 10, 20, 30],
+            "n_estimators": [10, 50, 100, 200],
+            "max_depth": [None, 10, 20, 30, 40],
+            "min_samples_split": [2, 5, 10],
+            "min_samples_leaf": [1, 2, 4],
+            "max_features": ["auto", "sqrt", "log2", None],
         },
-    }
+    },
 }
 
 
@@ -61,10 +70,12 @@ def apply_feature_selection(fs_strategy, X, y):
 
 def run_experiment(X, y, model, model_params, feature_selection_strategies):
     # Main experiment logic starts here
+    model_name = model().__class__.__name__
+
     smiles = X["SMILES"].values
     X = X.drop("SMILES", axis=1)
     for col in X.select_dtypes(include=["object"]).columns:
-            X[col] = LabelEncoder().fit_transform(X[col])
+        X[col] = LabelEncoder().fit_transform(X[col])
     imputer = SimpleImputer(strategy="mean")
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(imputer.fit_transform(X))
@@ -75,42 +86,55 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
     results_log = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
     features_log = pd.DataFrame(index=X.columns)
     metrics_log = pd.DataFrame()
-    
+
     # Convert param_grid to a format compatible with BayesSearchCV
-    skopt_space = {}
-    for param, values in model_params.items():
-        if isinstance(values[0], int):
-            skopt_space[param] = Integer(low=min(values), high=max(values), prior='uniform')
-        elif isinstance(values[0], float):
-            skopt_space[param] = Real(low=min(values), high=max(values), prior='uniform')
-        elif isinstance(values[0], str) or isinstance(values[0], bool):
-            skopt_space[param] = Categorical(categories=values)
-    
-    with pd.ExcelWriter("results.xlsx") as writer:
+    if model_params:
+        skopt_space = {}
+        for param, values in model_params.items():
+            if isinstance(values[0], int):
+                skopt_space[param] = Integer(
+                    low=min(values), high=max(values), prior="uniform"
+                )
+            elif isinstance(values[0], float):
+                skopt_space[param] = Real(
+                    low=min(values), high=max(values), prior="uniform"
+                )
+            elif isinstance(values[0], str) or isinstance(values[0], bool):
+                skopt_space[param] = Categorical(categories=values)
+    else:
+        print(f"No hyperparameters for {model_name}, using default model parameters.")
+
+    with pd.ExcelWriter(f"{model_name}_results.xlsx") as writer:
         for fs_strategy in feature_selection_strategies:
             X_train_fs, selector = apply_feature_selection(
                 fs_strategy, X_train, y_train
             )
             X_test_fs = selector.transform(X_test) if selector else X_test
 
-            # Bayesian Optimization
-            opt = BayesSearchCV(
-                estimator=model(),
-                search_spaces=skopt_space,
-                n_iter=3,  # Number of iterations, increase for better results but longer runtime
-                cv=5,       # Cross-validation folds
-                n_jobs=-1,  # Use all available cores
-                verbose=1,
-                random_state=42
-            )
-            opt.fit(X_train_fs, y_train)
+            if model_params:
+                print("Performing Bayesian Optimization for Tuning")
+                # Bayesian Optimization
+                opt = BayesSearchCV(
+                    estimator=model(),
+                    search_spaces=skopt_space,
+                    n_iter=3,  # Number of iterations, increase for better results but longer runtime
+                    cv=5,  # Cross-validation folds
+                    n_jobs=-1,  # Use all available cores
+                    random_state=42,
+                )
+                opt.fit(X_train_fs, y_train)
 
-            # Best model after tuning
-            model_instance = opt.best_estimator_
+                # Best model after tuning
+                model_instance = opt.best_estimator_
+                print(f"{fs_strategy['name']} - Best Params: {opt.best_params_}")
+            else:
+                model_instance = model()
+                model_instance.fit(X_train_fs, y_train)
+
             predictions = model_instance.predict(X_test_fs)
             r2 = r2_score(y_test, predictions)
             mse = mean_squared_error(y_test, predictions)
-            print(f"{fs_strategy['name']} - Best Params: {opt.best_params_}: R2={r2}, MSE={mse}")
+            print(f"R2={r2}, MSE={mse}")
 
             results_log[f"{fs_strategy['name']}_Predicted"] = predictions
             features_log[fs_strategy["name"]] = pd.Series(
@@ -123,9 +147,9 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
             )
             metrics_log[fs_strategy["name"]] = {"R2": r2, "MSE": mse}
 
-        # Save logs to Excel
+        # Append or create sheets based on the dynamic names
         results_log.to_excel(writer, sheet_name="Predictions", index=False)
-        features_log.to_excel(writer, sheet_name="Selected_Features")
+        features_log.to_excel(writer, sheet_name="Features")
         metrics_log.T.to_excel(writer, sheet_name="Metrics")
 
 
@@ -133,7 +157,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Model evaluation with feature selection."
     )
-    parser.add_argument("--model", type=str, choices=["knn", "rf"], help="Model name")
+    parser.add_argument("--model", type=str, choices=["lr", "rf"], help="Model name")
     args = parser.parse_args()
 
     data = pd.read_csv("./data/processed.csv").dropna(subset=["η / mPa s"])
@@ -141,13 +165,13 @@ if __name__ == "__main__":
 
     feature_selection_strategies = [
         {"name": "Base"},
-        {"name": "SelectKBest", "k": 8},
-        {"name": "RFE", "k": 10},
+        {"name": "SelectKBest"},
+        {"name": "RFE"},
         {"name": "BFS"},
     ]
     if args.model in EXPERIMENT_CONFIGS:
-        model = EXPERIMENT_CONFIGS[args.model]['model']
-        model_params = EXPERIMENT_CONFIGS[args.model]['param_grid']
+        model = EXPERIMENT_CONFIGS[args.model]["model"]
+        model_params = EXPERIMENT_CONFIGS[args.model]["param_grid"]
     else:
         raise Exception()
 
