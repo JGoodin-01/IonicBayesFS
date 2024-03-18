@@ -36,6 +36,20 @@ class BFS:
         with feature_selection_model:
             self.trace = pm.sample(1000, tune=1000)
 
+    def get_feature_rankings(self):
+        if self.selected_features is None:
+            raise RuntimeError("BFS selector has not been fitted.")
+
+        # Calculate the mean posterior inclusion probability for each feature
+        posterior_inclusion_probs = np.mean(
+            self.trace.posterior["included_features"].values, axis=(0, 1)
+        )
+        
+        # Rank features based on these probabilities (higher is better)
+        feature_rankings = np.argsort(posterior_inclusion_probs)[::-1]  # Descending order
+        
+        return feature_rankings
+
     def fit(self, X_train, y_train):
         # Normalize features for better convergence
         X_normalized = (X_train - np.mean(X_train, axis=0)) / np.std(X_train, axis=0)

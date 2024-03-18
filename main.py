@@ -21,10 +21,10 @@ def run_plotting():
 
 
 if __name__ == "__main__":
-    run_preprocessing()
+    # run_preprocessing()
 
     models = ["lr", "rf"]
     for model in models:
         train_and_evaluate(model)
 
-    run_plotting()
+    # run_plotting()

@@ -40,37 +40,37 @@ EXPERIMENT_CONFIGS = {
             "max_depth": [None, 10, 20, 30, 40],
             "min_samples_split": [2, 5, 10],
             "min_samples_leaf": [1, 2, 4],
-            "max_features": ["auto", "sqrt", "log2", None],
+            "max_features": ["sqrt", "log2", None],
         },
     },
 }
 
 
 def apply_feature_selection(fs_strategy, X, y):
-    if fs_strategy["name"] == "Base":
-        return X, None
+    rankings = None
 
     if fs_strategy["name"] == "SelectKBest":
-        selector = SelectKBest(mutual_info_regression, k=fs_strategy.get("k", 10))
+        selector = SelectKBest(mutual_info_regression, k="all").fit(X, y)
+        rankings = selector.scores_.argsort()[::-1]  # Descending order of importance
     elif fs_strategy["name"] == "RFE":
-        selector = RFE(
-            RandomForestRegressor(n_estimators=5),
-            n_features_to_select=fs_strategy.get("k", 10),
-        )
+        estimator = RandomForestRegressor(
+            n_estimators=5, random_state=42
+        )  # More estimators for stability
+        selector = RFE(estimator, n_features_to_select=1).fit(X, y)
+        rankings = selector.ranking_.argsort()
     elif fs_strategy["name"] == "BFS":
         selector = BFS()
+        selector.fit(X, y)
+        rankings = selector.get_feature_rankings()
     else:
         raise ValueError("Invalid feature selection strategy")
 
-    selector.fit(X, y)
-    if fs_strategy["name"] == "BFS":
-        selector.traceplot()
-    return selector.transform(X), selector
+    return rankings
 
 
 def run_experiment(X, y, model, model_params, feature_selection_strategies):
-    # Main experiment logic starts here
     model_name = model().__class__.__name__
+    print(f"{model_name}:")
 
     smiles = X["SMILES"].values
     X = X.drop("SMILES", axis=1)
@@ -106,10 +106,37 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
 
     with pd.ExcelWriter(f"{model_name}_results.xlsx") as writer:
         for fs_strategy in feature_selection_strategies:
-            X_train_fs, selector = apply_feature_selection(
-                fs_strategy, X_train, y_train
-            )
-            X_test_fs = selector.transform(X_test) if selector else X_test
+            if fs_strategy["name"] != "Base":
+                ranking = apply_feature_selection(fs_strategy, X_train, y_train)
+                best_score = -1
+
+                # Iterate over a range of top N features, for example, 1 to the total number of features
+                for N in range(1, len(X_train[0]) + 1):
+                    top_features = ranking[:N]
+                    X_train_sub = X_train[:, top_features]
+                    X_test_sub = X_test[:, top_features]
+
+                    if model_name == "RandomForestRegressor":
+                        model_instance = model(n_estimators=5)
+                    else:
+                        model_instance = model()
+
+                    model_instance.fit(X_train_sub, y_train)
+                    y_pred = model_instance.predict(X_test_sub)
+                    score = r2_score(y_test, y_pred)
+
+                    if score > best_score:
+                        best_score = score
+                        fs_strategy["N"] = N
+
+                top_features = ranking[: fs_strategy["N"]]
+                X_train_opt = X_train[:, top_features].reshape(-1, fs_strategy["N"])
+                X_test_opt = X_test[:, top_features].reshape(-1, fs_strategy["N"])
+            else:
+                ranking = range(0, len(X_train[0]))
+                X_train_opt = X_train
+                X_test_opt = X_test
+                fs_strategy["N"] = len(ranking)
 
             if model_params:
                 print("Performing Bayesian Optimization for Tuning")
@@ -117,37 +144,43 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
                 opt = BayesSearchCV(
                     estimator=model(),
                     search_spaces=skopt_space,
-                    n_iter=3,  # Number of iterations, increase for better results but longer runtime
-                    cv=5,  # Cross-validation folds
+                    n_iter=10,  # Number of iterations, increase for better results but longer runtime
+                    cv=3,  # Cross-validation folds
                     n_jobs=-1,  # Use all available cores
                     random_state=42,
                 )
-                opt.fit(X_train_fs, y_train)
+                opt.fit(X_train_opt, y_train)
 
                 # Best model after tuning
                 model_instance = opt.best_estimator_
                 print(f"{fs_strategy['name']} - Best Params: {opt.best_params_}")
+                predictions = model_instance.predict(X_test_opt)
             else:
                 model_instance = model()
-                model_instance.fit(X_train_fs, y_train)
+                model_instance.fit(X_train, y_train)
+                predictions = model_instance.predict(X_test)
 
-            predictions = model_instance.predict(X_test_fs)
             r2 = r2_score(y_test, predictions)
             mse = mean_squared_error(y_test, predictions)
-            print(f"R2={r2}, MSE={mse}")
+            print(
+                f"{fs_strategy['name']} - R2={r2}, MSE={mse} - Using {fs_strategy['N']} features."
+            )
 
             results_log[f"{fs_strategy['name']}_Predicted"] = predictions
+            selected_features_mask = [False] * len(X.columns)
+            for i in range(0, fs_strategy["N"]):
+                if ranking[i] < len(selected_features_mask):
+                    selected_features_mask[ranking[i]] = True
+                else:
+                    print(
+                        f"Warning: Attempted to access out-of-range index {ranking[i]}"
+                    )
+
             features_log[fs_strategy["name"]] = pd.Series(
-                (
-                    selector.get_support()
-                    if selector and hasattr(selector, "get_support")
-                    else [True] * X_train_fs.shape[1]
-                ),
-                index=X.columns,
+                selected_features_mask, index=X.columns
             )
             metrics_log[fs_strategy["name"]] = {"R2": r2, "MSE": mse}
 
-        # Append or create sheets based on the dynamic names
         results_log.to_excel(writer, sheet_name="Predictions", index=False)
         features_log.to_excel(writer, sheet_name="Features")
         metrics_log.T.to_excel(writer, sheet_name="Metrics")
