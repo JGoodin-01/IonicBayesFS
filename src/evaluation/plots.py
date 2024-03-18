@@ -11,15 +11,20 @@ from sklearn.metrics import (
 )
 from functools import wraps
 
+# Global variable for directory
+IMAGE_DIRECTORY = "./images"
 
-def plot_wrapper(figsize=(8, 6), xlabel="", ylabel="", scale=None, directory="images", filename="image.svg", dynamic_params_func=None):
+
+def plot_wrapper(figsize=(8, 6), xlabel="", ylabel="", scale=None, filename="image.svg", dynamic_params_func=None):
     def decorator(plot_func):
         @wraps(plot_func)
         def wrapper(*args, **kwargs):
+            global IMAGE_DIRECTORY
+
             # Dynamic parameter processing
             if dynamic_params_func is not None:
                 dynamic_params = dynamic_params_func(*args, **kwargs)
-                dynamic_filename = dynamic_params.get("filename", filename)  # Use a different variable
+                dynamic_filename = dynamic_params.get("filename", filename)
             else:
                 dynamic_filename = filename
 
@@ -33,9 +38,9 @@ def plot_wrapper(figsize=(8, 6), xlabel="", ylabel="", scale=None, directory="im
 
             plot_func(*args, **kwargs)
             
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            plt.savefig(os.path.join(directory, dynamic_filename), format='svg')  # Use the dynamically determined filename
+            if not os.path.exists(IMAGE_DIRECTORY):
+                os.makedirs(IMAGE_DIRECTORY)
+            plt.savefig(os.path.join(IMAGE_DIRECTORY, dynamic_filename), format='svg')
             plt.close()
 
         return wrapper
@@ -159,23 +164,24 @@ def plot_scatter(data, techniques):
 
 
 def main():
-    file_path = "./results.xlsx"
-    pred_data = pd.read_excel(file_path, sheet_name="Predictions")
-    feature_data = pd.read_excel(file_path, sheet_name="Selected_Features")
+    global IMAGE_DIRECTORY
+    for file in os.listdir("./"):
+        if file.endswith("_results.xlsx"):
+            file_path = os.path.join("./", file)
+            technique_prefix = file_path.split("/")[-1].split("_")[0]  # Extracts 'LinearRegression'
+            IMAGE_DIRECTORY = f"./images/{technique_prefix}"  # Constructs the directory path
 
-    # Identify the feature selection techniques based on the column names
-    prediction_columns = [col for col in pred_data.columns if "_Predicted" in col]
-    techniques = [col.replace("_Predicted", "") for col in prediction_columns]
+            pred_data = pd.read_excel(file_path, sheet_name="Predictions")
 
-    # Calculate errors for each technique
-    pred_data = calculate_errors(pred_data, techniques)
+            # Identify the feature selection techniques based on the column names
+            prediction_columns = [col for col in pred_data.columns if "_Predicted" in col]
+            techniques = [col.replace("_Predicted", "") for col in prediction_columns]
 
-    # Generate plots
-    plot_scatter(pred_data, techniques)
-    plot_mae(pred_data, techniques)
-
-    # Plot the confusion matricess
-    confusion_matrices(pred_data, techniques)
+            # Generate plots with the dynamic directory path
+            pred_data = calculate_errors(pred_data, techniques)
+            plot_scatter(pred_data, techniques)
+            plot_mae(pred_data, techniques)
+            confusion_matrices(pred_data, techniques)
 
 
 if __name__ == "__main__":
