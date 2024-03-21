@@ -7,12 +7,9 @@ def run_preprocessing():
     subprocess.run(["python", "./scripts/run_preprocessing.py"], check=True)
 
 
-def train_and_evaluate(model_name):
+def train_and_evaluate():
     """Run the training and evaluation script for a given model."""
-    subprocess.run(
-        ["python", "-m", "scripts.train_and_evaluate", "--model", model_name],
-        check=True,
-    )
+    subprocess.run(["python", "-m", "scripts.train_and_evaluate"], check=True)
 
 
 def run_plotting():
@@ -22,9 +19,5 @@ def run_plotting():
 
 if __name__ == "__main__":
     # run_preprocessing()
-
-    # models = ["lr", "rf"]
-    # for model in models:
-    #     train_and_evaluate(model)
-
+    train_and_evaluate()
     run_plotting()

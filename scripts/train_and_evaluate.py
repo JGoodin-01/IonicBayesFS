@@ -10,7 +10,7 @@ from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from src.preprocessing.BFS import BFS
-
+from src.preprocessing.DataPrepper import DataPrepper
 
 # Function to check CUDA availability
 def cuda_available():
@@ -72,16 +72,8 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
     model_name = model().__class__.__name__
     print(f"{model_name}:")
 
-    smiles = X["SMILES"].values
-    X = X.drop("SMILES", axis=1)
-    for col in X.select_dtypes(include=["object"]).columns:
-        X[col] = LabelEncoder().fit_transform(X[col])
-    imputer = SimpleImputer(strategy="mean")
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(imputer.fit_transform(X))
-    X_train, X_test, y_train, y_test, _, smiles_test = train_test_split(
-        X_scaled, y, smiles, test_size=0.2, random_state=10
-    )
+    prepper = DataPrepper()
+    X_train, X_test, y_train, y_test, smiles_test = prepper.preprocess_data(X, y)
 
     results_log = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
     features_log = pd.DataFrame(index=X.columns)
