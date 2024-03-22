@@ -2,7 +2,7 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 
-class DataPrepper:
+class DataPrepperMixin:
     def preprocess_data(self, X, y, test_size=0.2, random_state=10):
         smiles = X["SMILES"].values
         X = X.drop("SMILES", axis=1)
