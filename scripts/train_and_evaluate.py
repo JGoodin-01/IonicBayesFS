@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression
 from src.preprocessing.BFS import BFS
 from src.preprocessing.DataPrepperMixin import DataPrepperMixin
 from src.evaluation.LoggerMixin import LoggerMixin
+from src.training.ModelOptimizationMixin import ModelOptimizationMixin
 
 
 # Function to check CUDA availability
@@ -78,24 +79,8 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
     X_train, X_test, y_train, y_test, smiles_test = prepper.preprocess_data(X, y)
 
     logger = LoggerMixin()
-
-    # Convert param_grid to a format compatible with BayesSearchCV
-    if model_params:
-        skopt_space = {}
-        for param, values in model_params.items():
-            if isinstance(values[0], int):
-                skopt_space[param] = Integer(
-                    low=min(values), high=max(values), prior="uniform"
-                )
-            elif isinstance(values[0], float):
-                skopt_space[param] = Real(
-                    low=min(values), high=max(values), prior="uniform"
-                )
-            elif isinstance(values[0], str) or isinstance(values[0], bool):
-                skopt_space[param] = Categorical(categories=values)
-    else:
-        print(f"No hyperparameters for {model_name}, using default model parameters.")
-
+    opt = ModelOptimizationMixin()
+    opt.configure_search_space(model_params)
     for fs_strategy in feature_selection_strategies:
         if fs_strategy["name"] != "Base":
             ranking = apply_feature_selection(fs_strategy, X_train, y_train)
@@ -129,27 +114,15 @@ def run_experiment(X, y, model, model_params, feature_selection_strategies):
             X_test_opt = X_test
             fs_strategy["N"] = len(ranking)
 
-        if model_params:
-            print("Performing Bayesian Optimization for Tuning")
-            # Bayesian Optimization
-            opt = BayesSearchCV(
-                estimator=model(),
-                search_spaces=skopt_space,
-                n_iter=10,  # Number of iterations, increase for better results but longer runtime
-                cv=3,  # Cross-validation folds
-                n_jobs=-1,  # Use all available cores
-                random_state=42,
-            )
-            opt.fit(X_train_opt, y_train)
-
-            # Best model after tuning
-            model_instance = opt.best_estimator_
-            print(f"{fs_strategy['name']} - Best Params: {opt.best_params_}")
-            predictions = model_instance.predict(X_test_opt)
+        opt.perform_bayesian_optimization(model(), X_train_opt, y_train)
+        best_est = opt.best_estimator
+        if opt.best_params:
+            print(f"{fs_strategy['name']} - Best Params: {opt.best_params}")
         else:
-            model_instance = model()
-            model_instance.fit(X_train, y_train)
-            predictions = model_instance.predict(X_test)
+            print(f"No hyperparameters for {model_name}, using defaults.")
+            best_est.fit(X_train_opt, y_train)
+
+        predictions = best_est.predict(X_test_opt)
 
         r2 = r2_score(y_test, predictions)
         mse = mean_squared_error(y_test, predictions)
