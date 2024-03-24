@@ -1,19 +1,12 @@
-import argparse
 import pandas as pd
-from skopt import BayesSearchCV
-from skopt.space import Real, Categorical, Integer
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
 from src.preprocessing.BFS import BFS
 from src.preprocessing.DataPrepperMixin import DataPrepperMixin
 from src.evaluation.LoggerMixin import LoggerMixin
 from src.training.ModelOptimizationMixin import ModelOptimizationMixin
-
+from src.EXPERIMENT_CONFIGS import EXPERIMENT_CONFIGS
 
 # Function to check CUDA availability
 def cuda_available():
@@ -29,24 +22,6 @@ if cuda_available():
     print("Using RAPIDS cuML for GPU acceleration.")
 else:
     print("CUDA not available. Falling back to scikit-learn.")
-
-
-EXPERIMENT_CONFIGS = {
-    "lr": {
-        "model": LinearRegression,
-        "param_grid": {},
-    },
-    "rf": {
-        "model": RandomForestRegressor,
-        "param_grid": {
-            "n_estimators": [10, 50, 100, 200],
-            "max_depth": [None, 10, 20, 30, 40],
-            "min_samples_split": [2, 5, 10],
-            "min_samples_leaf": [1, 2, 4],
-            "max_features": ["sqrt", "log2", None],
-        },
-    },
-}
 
 
 def apply_feature_selection(fs_strategy, X, y):
