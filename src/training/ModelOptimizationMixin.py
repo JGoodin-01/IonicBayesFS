@@ -45,6 +45,6 @@ class ModelOptimizationMixin:
 
             # Best model after tuning
             self.best_estimator = opt.best_estimator_
-            self.best_params = opt.best_estimator_
+            self.best_params = opt.best_params_
         else:
             self.best_estimator = estimator
