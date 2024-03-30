@@ -3,14 +3,21 @@ import pandas as pd
 
 class LoggerMixin:
     def __init__(self):
-        self.results_log = pd.DataFrame()
+        self.predictions_log = pd.DataFrame()  # Renamed for clarity
         self.features_log = pd.DataFrame()
         self.metrics_log = pd.DataFrame()
+        self.actual_test_values = None
 
-    def log_results(self, smiles_test, y_test, predictions, strategy_name, fold_index=0):
-        if self.results_log.empty:
-            self.results_log = pd.DataFrame({"SMILES": smiles_test, "Actual": y_test})
-        self.results_log[f"{strategy_name}_Predicted_{fold_index}"] = predictions
+    def set_actual_test_values(self, y_test):
+        # Store the actual test values only once
+        if self.actual_test_values is None:
+            self.actual_test_values = y_test
+            self.predictions_log["Actual"] = y_test
+
+    def log_predictions(self, predictions, strategy_name, fold_index=0):
+        # Log only the predictions, ensuring the actual values are stored separately
+        col_name = f"{strategy_name}_Predicted_{fold_index}"
+        self.predictions_log[col_name] = predictions
 
     def log_features(self, X, ranking, fs_strategy, fold_index=0):
         selected_features_mask = [False] * len(X.columns)
@@ -27,12 +34,20 @@ class LoggerMixin:
             selected_features_mask, index=X.columns
         )
 
-    def log_metrics(self, r2, mse, strategy_name, fold_index=0):
-        name = f"{strategy_name}_{fold_index}"
-        self.metrics_log[name] = {"R2": r2, "MSE": mse}
+    def log_metrics(self, r2, mse, strategy_name, phase, fold_index=0):
+        # Adjusted to include phase (Validation/Testing) in the logging
+        name = f"{strategy_name}_{phase}_{fold_index}"
+        new_entry = pd.DataFrame({name: {"R2": r2, "MSE": mse}})
+        if name in self.metrics_log:
+            self.metrics_log[name].update(new_entry)
+        else:
+            self.metrics_log = pd.concat([self.metrics_log, new_entry], axis=1)
 
     def save_logs(self, filename):
         with pd.ExcelWriter(filename) as writer:
-            self.results_log.to_excel(writer, sheet_name="Predictions", index=False)
-            self.features_log.to_excel(writer, sheet_name="Features")
-            pd.DataFrame(self.metrics_log).T.to_excel(writer, sheet_name="Metrics")
+            if not self.predictions_log.empty:
+                self.predictions_log.to_excel(writer, sheet_name="Predictions")
+            if not self.features_log.empty:
+                self.features_log.to_excel(writer, sheet_name="Features")
+            if not self.metrics_log.empty:
+                self.metrics_log.T.to_excel(writer, sheet_name="Metrics")

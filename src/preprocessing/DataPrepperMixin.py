@@ -2,16 +2,21 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 
+
 class DataPrepperMixin:
-    def preprocess_data(self, X, y, test_size=0.2, random_state=10):
-        smiles = X["SMILES"].values
+    @staticmethod
+    def split_and_scale_data(X, y, test_portion=0.2, random_state=42):
         X = X.drop("SMILES", axis=1)
         for col in X.select_dtypes(include=["object"]).columns:
             X[col] = LabelEncoder().fit_transform(X[col])
+
+        X_train_full, X_test, y_train_full, y_test = train_test_split(
+            X, y, test_size=test_portion, random_state=random_state
+        )
+
         imputer = SimpleImputer(strategy="mean")
         scaler = MinMaxScaler()
-        X_scaled = scaler.fit_transform(imputer.fit_transform(X))
-        X_train, X_test, y_train, y_test, _, smiles_test = train_test_split(
-            X_scaled, y, smiles, test_size=test_size, random_state=random_state
-        )
-        return X_train, X_test, y_train, y_test, smiles_test
+        X_train_full_scaled = scaler.fit_transform(imputer.fit_transform(X_train_full))
+        X_test_scaled = scaler.transform(imputer.transform(X_test))
+
+        return X_train_full_scaled, X_test_scaled, y_train_full, y_test
