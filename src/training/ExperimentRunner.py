@@ -163,4 +163,4 @@ class ExperimentRunner:
         )
 
         # Save logs after each strategy (Adjust according to your needs)
-        self.logger.save_logs(f"{model().__class__.__name__}_cross_val_results.xlsx")
+        self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")

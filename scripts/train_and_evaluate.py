@@ -20,7 +20,10 @@ else:
 
 
 if __name__ == "__main__":
-    models = ["lr", "rf"]
+    models = [
+            # "lr", 
+              "rf"
+              ]
     data = pd.read_csv("./data/processed.csv").dropna(subset=["η / mPa s"])
     X, y = data.drop("η / mPa s", axis=1), data["η / mPa s"].values
     runner = ExperimentRunner()
@@ -28,8 +31,8 @@ if __name__ == "__main__":
     feature_selection_strategies = [
         {"name": "Base"},
         {"name": "SelectKBest"},
-        {"name": "RFE"},
-        {"name": "BFS"},
+        # {"name": "RFE"},
+        # {"name": "BFS"},
     ]
     for model_key in models:
         model_config = EXPERIMENT_CONFIGS[model_key]
