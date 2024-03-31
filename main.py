@@ -19,5 +19,5 @@ def run_plotting():
 
 if __name__ == "__main__":
     # run_preprocessing()
-    # train_and_evaluate()
+    train_and_evaluate()
     run_plotting()

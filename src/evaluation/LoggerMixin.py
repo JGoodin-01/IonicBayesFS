@@ -12,7 +12,7 @@ class LoggerMixin:
         # Store the actual test values only once
         if self.actual_test_values is None:
             self.actual_test_values = y_test
-            self.predictions_log["Actual"] = y_test
+            self.predictions_log["Actual"] = self.actual_test_values
 
     def log_predictions(self, predictions, strategy_name, fold_index=0):
         # Log only the predictions, ensuring the actual values are stored separately
@@ -30,9 +30,7 @@ class LoggerMixin:
         if self.features_log.empty:
             self.features_log = pd.DataFrame(index=X.columns)
         name = f"{fs_strategy['name']}_{fold_index}"
-        self.features_log[name] = pd.Series(
-            selected_features_mask, index=X.columns
-        )
+        self.features_log[name] = pd.Series(selected_features_mask, index=X.columns)
 
     def log_metrics(self, r2, mse, strategy_name, phase, fold_index=0):
         # Adjusted to include phase (Validation/Testing) in the logging
@@ -51,3 +49,10 @@ class LoggerMixin:
                 self.features_log.to_excel(writer, sheet_name="Features")
             if not self.metrics_log.empty:
                 self.metrics_log.T.to_excel(writer, sheet_name="Metrics")
+
+    def clear_logs(self):
+        """Reset the logs to their initial empty state."""
+        self.predictions_log = pd.DataFrame()
+        self.features_log = pd.DataFrame()
+        self.metrics_log = pd.DataFrame()
+        self.predictions_log["Actual"] = self.actual_test_values

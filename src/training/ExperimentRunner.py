@@ -7,14 +7,12 @@ from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
 from src.preprocessing.BFS import BFS
 from sklearn.model_selection import KFold
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
 
 
 class ExperimentRunner:
-    def __init__(self):
+    def __init__(self, config):
         self.model = None
+        self.config = config
         self.prepper = DataPrepperMixin()
         self.logger = LoggerMixin()
         self.opt = ModelOptimizationMixin()
@@ -54,113 +52,117 @@ class ExperimentRunner:
 
         return r2, mse
 
-    def run_cross_experiment(
-        self, X, y, model, model_params, feature_selection_strategies, n_splits=2
-    ):
-        model_name = model().__class__.__name__
-        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-
+    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
             self.prepper.split_and_scale_data(X, y)
         )
         self.logger.set_actual_test_values(y_test)
 
-        self.opt.configure_search_space(model_params)
-        for fs_strategy in feature_selection_strategies:
-            val_r2_scores, test_r2_scores = [], []
-            val_mse_scores, test_mse_scores = [], []
+        for model_key, model_details in self.config.items():
+            model = model_details["model"]
+            model_params = model_details["param_grid"]
+            model_name = model().__class__.__name__
+            print(f"Running experiment for {model_name}...")
 
-            for fold_index, (train_index, val_index) in enumerate(
-                kf.split(X_train_full_scaled)
-            ):
-                X_train, X_val = (
-                    X_train_full_scaled[train_index],
-                    X_train_full_scaled[val_index],
-                )
-                y_train, y_val = y_train_full[train_index], y_train_full[val_index]
+            kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            self.opt.configure_search_space(model_params)
+            for fs_strategy in feature_selection_strategies:
+                val_r2_scores, test_r2_scores = [], []
+                val_mse_scores, test_mse_scores = [], []
 
-                # Apply feature selection if not 'Base'
-                if fs_strategy["name"] != "Base":
-                    ranking = self.apply_feature_selection(
-                        fs_strategy, X_train, y_train
+                for fold_index, (train_index, val_index) in enumerate(
+                    kf.split(X_train_full_scaled)
+                ):
+                    X_train, X_val = (
+                        X_train_full_scaled[train_index],
+                        X_train_full_scaled[val_index],
                     )
-                    best_score = -1
+                    y_train, y_val = y_train_full[train_index], y_train_full[val_index]
 
-                    for N in range(1, len(X_train[0]) + 1):
-                        top_features = ranking[:N]
-                        X_train_sub = X_train[:, top_features]
-                        X_val_sub = X_val[:, top_features]
+                    # Apply feature selection if not 'Base'
+                    if fs_strategy["name"] != "Base":
+                        ranking = self.apply_feature_selection(
+                            fs_strategy, X_train, y_train
+                        )
+                        best_score = -1
 
-                        if model_name == "RandomForestRegressor":
-                            model_instance = model(n_estimators=5)
-                        else:
-                            model_instance = model()
-                        model_instance.fit(X_train_sub, y_train)
-                        y_pred = model_instance.predict(X_val_sub)
-                        score = r2_score(y_val, y_pred)
+                        for N in range(1, len(X_train[0]) + 1):
+                            top_features = ranking[:N]
+                            X_train_sub = X_train[:, top_features]
+                            X_val_sub = X_val[:, top_features]
 
-                        if score > best_score:
-                            best_score = score
-                            fs_strategy["N"] = N
+                            if model_name == "RandomForestRegressor":
+                                model_instance = model(n_estimators=5)
+                            else:
+                                model_instance = model()
+                            model_instance.fit(X_train_sub, y_train)
+                            y_pred = model_instance.predict(X_val_sub)
+                            score = r2_score(y_val, y_pred)
 
-                    top_features = ranking[: fs_strategy["N"]]
-                    X_train_opt = X_train[:, top_features]
-                    X_val_opt = X_val[:, top_features]
-                    X_test_opt = X_test_scaled[:, top_features]
-                else:
-                    ranking = range(0, len(X_train[0]))
-                    X_train_opt = X_train
-                    X_val_opt = X_val
-                    X_test_opt = X_test_scaled
-                    fs_strategy["N"] = len(ranking)
+                            if score > best_score:
+                                best_score = score
+                                fs_strategy["N"] = N
 
-                # Hyperparameter optimization and model evaluation
-                self.opt.perform_bayesian_optimization(model(), X_train_opt, y_train)
-                best_est = self.opt.best_estimator
-                if self.opt.best_params:
-                    print(
-                        f"{fs_strategy['name']} - Best Params: {self.opt.best_params}"
+                        top_features = ranking[: fs_strategy["N"]]
+                        X_train_opt = X_train[:, top_features]
+                        X_val_opt = X_val[:, top_features]
+                        X_test_opt = X_test_scaled[:, top_features]
+                    else:
+                        ranking = range(0, len(X_train[0]))
+                        X_train_opt = X_train
+                        X_val_opt = X_val
+                        X_test_opt = X_test_scaled
+                        fs_strategy["N"] = len(ranking)
+
+                    # Hyperparameter optimization and model evaluation
+                    self.opt.perform_bayesian_optimization(
+                        model(), X_train_opt, y_train
                     )
-                else:
-                    best_est.fit(X_train_opt, y_train)
+                    best_est = self.opt.best_estimator
+                    if self.opt.best_params:
+                        print(
+                            f"{fs_strategy['name']} - Best Params: {self.opt.best_params}"
+                        )
+                    else:
+                        best_est.fit(X_train_opt, y_train)
 
-                val_r2, val_mse = self.record_predictions(
-                    best_est,
-                    X_val_opt,
-                    y_val,
-                    fs_strategy["name"],
-                    "Validation",
-                    fold_index,
-                )
-                test_r2, test_mse = self.record_predictions(
-                    best_est,
-                    X_test_opt,
-                    y_test,
-                    fs_strategy["name"],
-                    "Testing",
-                    fold_index,
-                )
+                    val_r2, val_mse = self.record_predictions(
+                        best_est,
+                        X_val_opt,
+                        y_val,
+                        fs_strategy["name"],
+                        "Validation",
+                        fold_index,
+                    )
+                    test_r2, test_mse = self.record_predictions(
+                        best_est,
+                        X_test_opt,
+                        y_test,
+                        fs_strategy["name"],
+                        "Testing",
+                        fold_index,
+                    )
 
-                val_r2_scores.append(val_r2)
-                val_mse_scores.append(val_mse)
+                    val_r2_scores.append(val_r2)
+                    val_mse_scores.append(val_mse)
 
-                test_r2_scores.append(test_r2)
-                test_mse_scores.append(test_mse)
+                    test_r2_scores.append(test_r2)
+                    test_mse_scores.append(test_mse)
 
-                self.logger.log_features(X, ranking, fs_strategy, fold_index)
+                    self.logger.log_features(X, ranking, fs_strategy, fold_index)
 
-        # Calculate and log average scores after all folds for both validation and testing
-        val_avg_r2 = np.mean(val_r2_scores)
-        val_avg_mse = np.mean(val_mse_scores)
-        test_avg_r2 = np.mean(test_r2_scores)
-        test_avg_mse = np.mean(test_mse_scores)
+            # Calculate and log average scores after all folds for both validation and testing
+            val_avg_r2 = np.mean(val_r2_scores)
+            val_avg_mse = np.mean(val_mse_scores)
+            test_avg_r2 = np.mean(test_r2_scores)
+            test_avg_mse = np.mean(test_mse_scores)
 
-        print(
-            f"VALIDATION: {fs_strategy['name']} - Average R2: {val_avg_r2}, Average MSE: {val_avg_mse}"
-        )
-        print(
-            f"TESTING: {fs_strategy['name']} - Average R2: {test_avg_r2}, Average MSE: {test_avg_mse}"
-        )
+            print(
+                f"VALIDATION: {fs_strategy['name']} - Average R2: {val_avg_r2}, Average MSE: {val_avg_mse}"
+            )
+            print(
+                f"TESTING: {fs_strategy['name']} - Average R2: {test_avg_r2}, Average MSE: {test_avg_mse}"
+            )
 
-        # Save logs after each strategy (Adjust according to your needs)
-        self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
+            self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
+            self.logger.clear_logs()
