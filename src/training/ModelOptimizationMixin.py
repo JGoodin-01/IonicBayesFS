@@ -26,7 +26,7 @@ class ModelOptimizationMixin:
                     self.skopt_space[param] = Categorical(categories=values)
 
     def perform_bayesian_optimization(
-        self, estimator, X, y, n_iter=10, cv=3, n_jobs=-1, random_state=42
+        self, estimator, X, y, n_iter=25, cv=3, n_jobs=-1, random_state=42
     ):
         """
         Perform Bayesian Optimization to find the best model hyperparameters.

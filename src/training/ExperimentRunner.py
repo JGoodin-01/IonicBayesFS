@@ -23,13 +23,9 @@ class ExperimentRunner:
 
         if fs_strategy["name"] == "SelectKBest":
             selector = SelectKBest(mutual_info_regression, k="all").fit(X, y)
-            rankings = selector.scores_.argsort()[
-                ::-1
-            ]  # Descending order of importance
+            rankings = selector.scores_.argsort()[::-1]
         elif fs_strategy["name"] == "RFE":
-            estimator = RandomForestRegressor(
-                n_estimators=5, random_state=42
-            )  # More estimators for stability
+            estimator = RandomForestRegressor(n_estimators=5, random_state=42)
             selector = RFE(estimator, n_features_to_select=1).fit(X, y)
             rankings = selector.ranking_.argsort()
         elif fs_strategy["name"] == "BFS":
@@ -52,13 +48,13 @@ class ExperimentRunner:
 
         return r2, mse
 
-    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
+    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=5):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
             self.prepper.split_and_scale_data(X, y)
         )
         self.logger.set_actual_test_values(y_test)
 
-        for model_key, model_details in self.config.items():
+        for model_details in self.config:
             model = model_details["model"]
             model_params = model_details["param_grid"]
             model_name = model().__class__.__name__
@@ -166,3 +162,4 @@ class ExperimentRunner:
 
             self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
             self.logger.clear_logs()
+            self.opt = ModelOptimizationMixin()
