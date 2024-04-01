@@ -1,41 +1,18 @@
 import numpy as np
 from src.preprocessing.DataPrepperMixin import DataPrepperMixin
-from src.evaluation.LoggerMixin import LoggerMixin
-from src.training.ModelOptimizationMixin import ModelOptimizationMixin
+from src.evaluation.ExcelLogger import ExcelLogger
+from src.training.OptimizationManager import OptimizationManager
 from sklearn.metrics import r2_score, mean_squared_error
-from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
-from sklearn.ensemble import RandomForestRegressor
-from src.preprocessing.BFS import BFS
 from sklearn.model_selection import KFold
+from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
 
 
-class ExperimentRunner:
+class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
     def __init__(self, config):
         self.model = None
         self.config = config
-        self.prepper = DataPrepperMixin()
-        self.logger = LoggerMixin()
-        self.opt = ModelOptimizationMixin()
-
-    @staticmethod
-    def apply_feature_selection(fs_strategy, X, y):
-        rankings = None
-
-        if fs_strategy["name"] == "SelectKBest":
-            selector = SelectKBest(mutual_info_regression, k="all").fit(X, y)
-            rankings = selector.scores_.argsort()[::-1]
-        elif fs_strategy["name"] == "RFE":
-            estimator = RandomForestRegressor(n_estimators=5, random_state=42)
-            selector = RFE(estimator, n_features_to_select=1).fit(X, y)
-            rankings = selector.ranking_.argsort()
-        elif fs_strategy["name"] == "BFS":
-            selector = BFS()
-            selector.fit(X, y)
-            rankings = selector.get_feature_rankings()
-        else:
-            raise ValueError("Invalid feature selection strategy")
-
-        return rankings
+        self.logger = ExcelLogger()
+        self.opt = OptimizationManager()
 
     def record_predictions(self, model, X, y, strategy_name, phase, fold_index):
         predictions = model.predict(X)
@@ -48,9 +25,13 @@ class ExperimentRunner:
 
         return r2, mse
 
+    def reset_experiment(self):
+        self.logger.clear_logs()
+        self.opt.reset_space()
+
     def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=5):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
-            self.prepper.split_and_scale_data(X, y)
+            self.split_and_scale_data(X, y)
         )
         self.logger.set_actual_test_values(y_test)
 
@@ -147,19 +128,18 @@ class ExperimentRunner:
 
                     self.logger.log_features(X, ranking, fs_strategy, fold_index)
 
-            # Calculate and log average scores after all folds for both validation and testing
-            val_avg_r2 = np.mean(val_r2_scores)
-            val_avg_mse = np.mean(val_mse_scores)
-            test_avg_r2 = np.mean(test_r2_scores)
-            test_avg_mse = np.mean(test_mse_scores)
+                # Calculate and log average scores after all folds for both validation and testing
+                val_avg_r2 = np.mean(val_r2_scores)
+                val_avg_mse = np.mean(val_mse_scores)
+                test_avg_r2 = np.mean(test_r2_scores)
+                test_avg_mse = np.mean(test_mse_scores)
 
-            print(
-                f"VALIDATION: {fs_strategy['name']} - Average R2: {val_avg_r2}, Average MSE: {val_avg_mse}"
-            )
-            print(
-                f"TESTING: {fs_strategy['name']} - Average R2: {test_avg_r2}, Average MSE: {test_avg_mse}"
-            )
+                print(
+                    f"VALIDATION: {fs_strategy['name']} - Average R2: {val_avg_r2}, Average MSE: {val_avg_mse}"
+                )
+                print(
+                    f"TESTING: {fs_strategy['name']} - Average R2: {test_avg_r2}, Average MSE: {test_avg_mse}"
+                )
 
             self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
-            self.logger.clear_logs()
-            self.opt = ModelOptimizationMixin()
+            self.reset_experiment()

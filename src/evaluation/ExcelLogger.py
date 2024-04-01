@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-class LoggerMixin:
+class ExcelLogger:
     def __init__(self):
         self.predictions_log = pd.DataFrame()  # Renamed for clarity
         self.features_log = pd.DataFrame()

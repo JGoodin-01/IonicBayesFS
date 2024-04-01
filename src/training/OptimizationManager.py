@@ -2,7 +2,7 @@ from skopt import BayesSearchCV
 from skopt.space import Real, Categorical, Integer
 
 
-class ModelOptimizationMixin:
+class OptimizationManager:
     def __init__(self):
         self.skopt_space = {}
         self.best_estimator = None
@@ -48,3 +48,8 @@ class ModelOptimizationMixin:
             self.best_params = opt.best_params_
         else:
             self.best_estimator = estimator
+
+    def reset_space(self):
+        self.skopt_space = {}
+        self.best_estimator = None
+        self.best_params = {}
