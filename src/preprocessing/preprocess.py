@@ -77,7 +77,7 @@ def add_descriptors(processed_df):
     return pd.concat([processed_df, descriptors_df], axis=1)
 
 
-def filter_dataframe(processed_df, threshold=50):
+def filter_dataframe(processed_df, threshold=10):
     # Simplify the DataFrame using vectorized filtering
     columns_to_drop = ["Cation", "Anion", "Excluded IL", "Accepted dataset"]
     processed_df.drop(columns=columns_to_drop, inplace=True)
@@ -85,7 +85,7 @@ def filter_dataframe(processed_df, threshold=50):
     # Get boolean masks for nunique and value_counts
     nunique_mask = processed_df.nunique() > 1
     value_counts_mask = (
-        processed_df.apply(lambda x: max(x.value_counts(normalize=True))) <= 0.75
+        processed_df.apply(lambda x: max(x.value_counts(normalize=True))) <= 0.85
     )
 
     # Use the boolean masks to filter columns
