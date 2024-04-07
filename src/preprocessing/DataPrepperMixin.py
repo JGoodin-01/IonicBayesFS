@@ -19,4 +19,4 @@ class DataPrepperMixin:
         X_train_full_scaled = scaler.fit_transform(imputer.fit_transform(X_train_full))
         X_test_scaled = scaler.transform(imputer.transform(X_test))
 
-        return X_train_full_scaled, X_test_scaled, y_train_full, y_test
+        return X_train_full_scaled.astype('float32'), X_test_scaled.astype('float32'), y_train_full.astype('float32'), y_test.astype('float32')
