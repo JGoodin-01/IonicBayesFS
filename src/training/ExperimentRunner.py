@@ -100,6 +100,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                         print(
                             f"{fs_strategy['name']} - Best Params: {self.opt.best_params}"
                         )
+                        self.logger.log_params(fs_strategy["name"], fold_index, self.opt.best_params)
                     else:
                         best_est.fit(X_train_opt, y_train)
 

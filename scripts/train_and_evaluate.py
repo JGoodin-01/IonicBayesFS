@@ -11,8 +11,8 @@ if __name__ == "__main__":
     feature_selection_strategies = [
         {"name": "Base"},
         {"name": "SelectKBest"},
-        {"name": "RFE"},
-        {"name": "BFS"},
+        # {"name": "RFE"},
+        # {"name": "BFS"},
     ]
 
     runner.run_cross_experiment(X, y, feature_selection_strategies)
