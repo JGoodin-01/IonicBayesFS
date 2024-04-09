@@ -21,17 +21,22 @@ class ExcelLogger:
         self.predictions_log[col_name] = predictions
 
     def log_features(self, X, ranking, fs_strategy, fold_index=0):
-        selected_features_mask = [False] * len(X.columns)
-        for i in range(0, fs_strategy["N"]):
-            if ranking[i] < len(selected_features_mask):
-                selected_features_mask[ranking[i]] = True
-            else:
-                print(f"Warning: Accessed out-of-range index {ranking[i]}")
+        if fs_strategy["name"] == "Base":
+            feature_rankings = {feature: 1 for feature in X.columns}
+        else:
+            feature_rankings = {feature: None for feature in X.columns}
+            for rank, feature_index in enumerate(ranking[:fs_strategy["N"]], start=1):
+                if feature_index < len(X.columns):
+                    feature_name = X.columns[feature_index]
+                    feature_rankings[feature_name] = rank
+                else:
+                    print(f"Warning: Accessed out-of-range index {feature_index}")
 
+        features_df = pd.DataFrame(feature_rankings, index=[f"{fs_strategy['name']}_{fold_index}"])
         if self.features_log.empty:
-            self.features_log = pd.DataFrame(index=X.columns)
-        name = f"{fs_strategy['name']}_{fold_index}"
-        self.features_log[name] = pd.Series(selected_features_mask, index=X.columns)
+            self.features_log = features_df
+        else:
+            self.features_log = pd.concat([self.features_log, features_df])
 
     def log_metrics(self, r2, mse, strategy_name, phase, fold_index=0):
         name = f"{strategy_name}_{phase}_{fold_index}"
