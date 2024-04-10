@@ -37,12 +37,11 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
 
         for model_details in self.config:
             model = model_details["model"]
-            model_params = model_details["param_grid"]
             model_name = model().__class__.__name__
             print(f"Running experiment for {model_name}...")
 
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-            self.opt.configure_search_space(model_params)
+            self.opt.configure_search_space(model_details)
             for fs_strategy in feature_selection_strategies:
                 val_r2_scores, test_r2_scores = [], []
                 val_mse_scores, test_mse_scores = [], []

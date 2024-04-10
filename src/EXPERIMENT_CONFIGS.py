@@ -1,28 +1,30 @@
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
-
+from skopt.space import Real, Integer, Categorical
 
 EXPERIMENT_CONFIGS = [
     # {
     #     "model": LinearRegression,
-    #     "param_grid": {},
+    #     "param_grid": [],
     # },
     # {
     #     "model": Ridge,
-    #     "param_grid": {
-    #         "alpha": [0.1, 1.0, 10.0, 100.0],  # Regularization strength for Ridge
-    #         "tol": [0.0001, 0.001, 0.01],  # Optimization tolerance
-    #         "max_iter": [None, 1000, 5000, 10000],  # Maximum number of iterations
-    #         "random_state": [None, 42]  # Reproducibility of results
-    #     },
+    #     "param_grid": [
+    #         Real(0.1, 100.0, prior="log-uniform", name="alpha"),
+    #         Real(0.0001, 0.01, prior="log-uniform", name="tol"),
+    #         Categorical([None, 1000, 5000, 10000], name="max_iter"),
+    #         Categorical([None, 10, 42], name="random_state"),
+    #         Categorical([True, False], name="positive"),
+    #     ],
     # },
     # {
     #     "model": Lasso,
-    #     "param_grid": {
-    #         "alpha": [0.1, 1.0, 10.0, 100.0],
-    #         "tol": [0.0001, 0.001, 0.01],
-    #         "max_iter": [None, 1000, 5000, 10000],
-    #         "random_state": [None, 42]  # Reproducibility of results
-    #     },
+    #     "param_grid": [
+    #         Real(0.1, 100.0, prior="log-uniform", name="alpha"),
+    #         Real(0.0001, 0.01, prior="log-uniform", name="tol"),
+    #         Integer(10000, 15000, name="max_iter"),
+    #         Categorical([None, 10, 42], name="random_state"),
+    #         Categorical(["cyclic", "random"], name="selection"),
+    #     ],
     # },
 ]
 
@@ -44,14 +46,17 @@ if cuda_available():
     EXPERIMENT_CONFIGS.append(
         {
             "model": RandomForestRegressor,
-            "param_grid": {
-                "split_criterion": [4, 5],
-                "n_estimators": [10, 50, 100, 200],
-                "max_depth": [10, 20, 30, 40],
-                "min_samples_split": [2, 5, 10],
-                "min_samples_leaf": [1, 2, 4],
-                "max_features": ["sqrt", "log2", "auto"],
-            },
+            "cuML_used": True,
+            "param_grid": [
+                Categorical([2, 4, 5, 6], name="split_criterion"),
+                Integer(10, 200, name="n_estimators"),
+                Integer(1, 40, name="max_depth"),
+                Integer(2, 10, name="min_samples_split"),
+                Integer(100, 512, name="n_bins"),
+                Integer(1, 3, name="n_streams"),
+                Integer(1, 2, name="min_samples_leaf"),
+                Categorical(["sqrt", "log2", "auto"], name="max_features"),
+            ],
         },
     )
 
@@ -62,13 +67,16 @@ else:
     EXPERIMENT_CONFIGS.append(
         {
             "model": RandomForestRegressor,
-            "param_grid": {
-                "criterion": ["squared_error", "absolute_error", "friedman_mse", "poisson"],
-                "n_estimators": [10, 50, 100, 200],
-                "max_depth": [None, 10, 20, 30, 40],
-                "min_samples_split": [2, 5, 10],
-                "min_samples_leaf": [1, 2, 4],
-                "max_features": ["sqrt", "log2", None],
-            },
+            "param_grid": [
+                Categorical(
+                    ["squared_error", "absolute_error", "friedman_mse", "poisson"],
+                    name="criterion",
+                ),
+                Integer(10, 200, name="n_estimators"),
+                Categorical([None, 10, 20, 30, 40], name="max_depth"),
+                Integer(2, 10, name="min_samples_split"),
+                Integer(1, 4, name="min_samples_leaf"),
+                Categorical(["sqrt", "log2", None], name="max_features"),
+            ],
         },
     )

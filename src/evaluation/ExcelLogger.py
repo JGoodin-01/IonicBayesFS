@@ -72,7 +72,7 @@ class ExcelLogger:
             if not self.metrics_log.empty:
                 self.metrics_log.T.to_excel(writer, sheet_name="Metrics")
             if not self.params_log.empty:
-                self.params_log.to_excel(writer, sheet_name="Parameters", index=False)
+                self.params_log.to_excel(writer, sheet_name="Parameters")
 
     def clear_logs(self):
         """Reset the logs to their initial empty state."""
