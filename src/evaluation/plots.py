@@ -61,7 +61,9 @@ def calculate_errors(data, techniques, fold_numbers):
         fold_columns = [f"{technique}_Predicted_{fold}" for fold in fold_numbers]
         predicted_column = f"{technique}_Predicted_Avg"
         data[f"{technique}_Error"] = np.abs(data["Actual"] - data[predicted_column])
-        data[f"{technique}_Predicted_SEM"] = data[fold_columns].std(axis=1) / np.sqrt(len(fold_numbers))
+        data[f"{technique}_Predicted_SEM"] = data[fold_columns].std(axis=1) / np.sqrt(
+            len(fold_numbers)
+        )
     return data
 
 
@@ -243,16 +245,25 @@ def plot_scatter(data, techniques):
     """Generate a scatter plot for actual vs. average predicted values for each technique with shaded confidence intervals representing the standard deviation across folds."""
 
     # Plot the identity line
-    plt.plot([min(data["Actual"]), max(data["Actual"])], [min(data["Actual"]), max(data["Actual"])], 'k--', lw=1)
+    plt.plot(
+        [min(data["Actual"]), max(data["Actual"])],
+        [min(data["Actual"]), max(data["Actual"])],
+        "k--",
+        lw=1,
+    )
 
     for technique in techniques:
         # Sort data for correct CI visualization
         data_sorted = data.sort_values(by="Actual")
         avg_pred_column = f"{technique}_Predicted_Avg"
-        
+
         # Then plot the scatter points on top
         r2 = r2_score(data_sorted["Actual"], data_sorted[avg_pred_column])
-        plt.scatter(data_sorted["Actual"], data_sorted[avg_pred_column], label=f'{technique} (R² = {r2:.2f})')
+        plt.scatter(
+            data_sorted["Actual"],
+            data_sorted[avg_pred_column],
+            label=f"{technique} (R² = {r2:.2f})",
+        )
 
     plt.legend(loc="best")
 
@@ -277,21 +288,62 @@ def average_folds_predictions(data, techniques, fold_numbers):
     return data
 
 
+@plot_wrapper(
+    xlabel="Average Feature Importance",
+    filename="Feature_Importance.svg",
+)
+def plot_feature_importances(feature_data):
+    # Extract technique names
+    feature_data["Technique"] = feature_data[feature_data.columns[0]].str.extract(r"(.*)_")[0]
+
+    # Group by technique and calculate average and standard error
+    grouped = feature_data.groupby("Technique").mean(numeric_only=True)
+    grouped_sem = feature_data.groupby("Technique").sem(numeric_only=True)
+
+    techniques = [tech for tech in grouped.index if "Base" not in tech]
+    
+    if len(techniques) == 1:
+        technique = techniques[0]
+        top_features = grouped.loc[technique].nsmallest(20)
+        top_sems = grouped_sem.loc[technique][top_features.index]
+        top_features.plot(kind="barh", xerr=top_sems, color="skyblue")
+        plt.gca().invert_yaxis()
+        plt.title(f"{technique}")
+        plt.tight_layout()
+    else:
+        nrows = int(np.ceil(np.sqrt(len(techniques))))
+        ncols = int(np.ceil(len(techniques) / nrows))
+
+        fig, axes = plt.subplots(
+            nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
+        )
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+
+        for i, technique in enumerate(techniques):
+            ax = axes.flatten()[i]
+            top_features = grouped.loc[technique].nsmallest(20)
+            top_sems = grouped_sem.loc[technique][top_features.index]
+            top_features.plot(kind="barh", xerr=top_sems, color="skyblue", ax=ax)
+            ax.invert_yaxis()
+            ax.set_title(f"{technique}")
+            ax.set_xlabel("Average Feature Importance")
+
+        for j in range(i + 1, nrows * ncols):
+            fig.delaxes(axes.flatten()[j])
+
+        plt.tight_layout()
+
+
 def main():
     global IMAGE_DIRECTORY
     for file in os.listdir("./"):
         if file.endswith("_results.xlsx"):
             file_path = os.path.join("./", file)
-            technique_prefix = file_path.split("/")[-1].split("_")[
-                0
-            ]  # Extracts 'LinearRegression'
-            IMAGE_DIRECTORY = (
-                f"./images/{technique_prefix}"  # Constructs the directory path
-            )
+            technique_prefix = file_path.split("/")[-1].split("_")[0]
+            IMAGE_DIRECTORY = f"./images/{technique_prefix}"
 
             pred_data = pd.read_excel(file_path, sheet_name="Predictions")
 
-            # Identify the feature selection techniques based on the column names
             prediction_columns = [
                 col for col in pred_data.columns if "_Predicted" in col
             ]
@@ -308,6 +360,9 @@ def main():
             plot_scatter(pred_data, techniques)
             plot_mae(pred_data, techniques)
             confusion_matrices(pred_data, techniques)
+
+            feature_data = pd.read_excel(file_path, sheet_name="Features")
+            plot_feature_importances(feature_data)
 
 
 if __name__ == "__main__":
