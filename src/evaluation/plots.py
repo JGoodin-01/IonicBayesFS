@@ -334,6 +334,34 @@ def plot_feature_importances(feature_data):
         plt.tight_layout()
 
 
+@plot_wrapper(
+    xlabel='Predicted',
+    ylabel='Residuals',
+    filename='Residuals_Plot.svg'
+)
+def plot_residuals(data, technique):
+    """
+    Plot the residuals for a given prediction technique.
+    
+    Parameters:
+    data (DataFrame): The pandas DataFrame containing the prediction data.
+    technique (str): The name of the prediction technique to plot.
+    """
+    predicted_column = f"{technique}_Predicted_Avg"
+    residuals = data["Actual"] - data[predicted_column]
+
+    # Plot the identity line for reference (y=0)
+    plt.axhline(y=0, color='r', linestyle='--', linewidth=1)
+
+    plt.scatter(
+        data[predicted_column],
+        residuals,
+        color='blue',
+        alpha=0.5
+    )
+
+
+
 def main():
     global IMAGE_DIRECTORY
     for file in os.listdir("./"):
@@ -360,6 +388,9 @@ def main():
             plot_scatter(pred_data, techniques)
             plot_mae(pred_data, techniques)
             confusion_matrices(pred_data, techniques)
+
+            for technique in techniques:
+                plot_residuals(pred_data, technique)
 
             feature_data = pd.read_excel(file_path, sheet_name="Features")
             plot_feature_importances(feature_data)
