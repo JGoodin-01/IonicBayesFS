@@ -29,7 +29,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
         self.logger.clear_logs()
         self.opt.reset_space()
 
-    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
+    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=10):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
             self.split_and_scale_data(X, y)
         )
@@ -126,7 +126,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                     test_r2_scores.append(test_r2)
                     test_mse_scores.append(test_mse)
 
-                    self.logger.log_features(X, ranking, fs_strategy, fold_index)
+                    self.logger.log_features(X.drop("SMILES", axis=1), ranking, fs_strategy, fold_index)
 
                 # Calculate and log average scores after all folds for both validation and testing
                 val_avg_r2 = np.mean(val_r2_scores)
