@@ -29,7 +29,19 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
         self.logger.clear_logs()
         self.opt.reset_space()
 
-    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=10):
+    def print_table(self, headers, rows):
+        column_widths = [
+            max(len(str(item)) for item in col) for col in zip(*([headers] + rows))
+        ]
+        row_format = "".join(["{:<" + str(width + 2) + "}" for width in column_widths])
+
+        print(row_format.format(*headers))
+        print("-" * sum(column_widths))
+
+        for row in rows:
+            print(row_format.format(*row))
+
+    def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
             self.split_and_scale_data(X, y)
         )
@@ -99,7 +111,9 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                         print(
                             f"{fs_strategy['name']} - Best Params: {self.opt.best_params}"
                         )
-                        self.logger.log_params(fs_strategy["name"], fold_index, self.opt.best_params)
+                        self.logger.log_params(
+                            fs_strategy["name"], fold_index, self.opt.best_params
+                        )
                     else:
                         best_est.fit(X_train_opt, y_train)
 
@@ -126,7 +140,9 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                     test_r2_scores.append(test_r2)
                     test_mse_scores.append(test_mse)
 
-                    self.logger.log_features(X.drop("SMILES", axis=1), ranking, fs_strategy, fold_index)
+                    self.logger.log_features(
+                        X.drop("SMILES", axis=1), ranking, fs_strategy, fold_index
+                    )
 
                 # Calculate and log average scores after all folds for both validation and testing
                 val_avg_r2 = np.mean(val_r2_scores)
@@ -134,12 +150,12 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                 test_avg_r2 = np.mean(test_r2_scores)
                 test_avg_mse = np.mean(test_mse_scores)
 
-                print(
-                    f"VALIDATION: {fs_strategy['name']} - Average R2: {val_avg_r2}, Average MSE: {val_avg_mse}"
-                )
-                print(
-                    f"TESTING: {fs_strategy['name']} - Average R2: {test_avg_r2}, Average MSE: {test_avg_mse}"
-                )
+                headers = ["Strategy", "Phase", "Average R2", "Average MSE"]
+                rows = [
+                    [fs_strategy["name"], "Validation", val_avg_r2, val_avg_mse],
+                    [fs_strategy["name"], "Testing", test_avg_r2, test_avg_mse],
+                ]
+                self.print_table(headers, rows)
 
             self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
             self.reset_experiment()

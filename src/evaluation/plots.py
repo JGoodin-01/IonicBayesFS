@@ -294,14 +294,16 @@ def average_folds_predictions(data, techniques, fold_numbers):
 )
 def plot_feature_importances(feature_data):
     # Extract technique names
-    feature_data["Technique"] = feature_data[feature_data.columns[0]].str.extract(r"(.*)_")[0]
+    feature_data["Technique"] = feature_data[feature_data.columns[0]].str.extract(
+        r"(.*)_"
+    )[0]
 
     # Group by technique and calculate average and standard error
     grouped = feature_data.groupby("Technique").mean(numeric_only=True)
     grouped_sem = feature_data.groupby("Technique").sem(numeric_only=True)
 
     techniques = [tech for tech in grouped.index if "Base" not in tech]
-    
+
     if len(techniques) == 1:
         technique = techniques[0]
         top_features = grouped.loc[technique].nsmallest(20)
@@ -334,15 +336,11 @@ def plot_feature_importances(feature_data):
         plt.tight_layout()
 
 
-@plot_wrapper(
-    xlabel='Predicted',
-    ylabel='Residuals',
-    filename='Residuals_Plot.svg'
-)
+@plot_wrapper(xlabel="Predicted", ylabel="Residuals", filename="Residuals_Plot.svg")
 def plot_residuals(data, technique):
     """
     Plot the residuals for a given prediction technique.
-    
+
     Parameters:
     data (DataFrame): The pandas DataFrame containing the prediction data.
     technique (str): The name of the prediction technique to plot.
@@ -351,15 +349,9 @@ def plot_residuals(data, technique):
     residuals = data["Actual"] - data[predicted_column]
 
     # Plot the identity line for reference (y=0)
-    plt.axhline(y=0, color='r', linestyle='--', linewidth=1)
+    plt.axhline(y=0, color="r", linestyle="--", linewidth=1)
 
-    plt.scatter(
-        data[predicted_column],
-        residuals,
-        color='blue',
-        alpha=0.5
-    )
-
+    plt.scatter(data[predicted_column], residuals, color="blue", alpha=0.5)
 
 
 def main():
