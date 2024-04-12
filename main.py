@@ -23,7 +23,7 @@ def run_model_plotting():
 
 
 if __name__ == "__main__":
-    run_preprocessing()
-    # run_dataset_plotting()
-    train_and_evaluate()
-    run_model_plotting()
+    # run_preprocessing()
+    run_dataset_plotting()
+    # train_and_evaluate()
+    # run_model_plotting()
