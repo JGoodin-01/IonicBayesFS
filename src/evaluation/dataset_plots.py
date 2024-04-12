@@ -95,7 +95,6 @@ def plot_wrapper(
 @plot_wrapper(
     figsize=(12, 6),
     ylabel="Variance",
-    filename="variance_plot.svg",
     dynamic_params_func=lambda data, column: {
         "filename": sanitize_filename(f"{column}_variance.svg")
     },
@@ -117,7 +116,7 @@ def plot_variance(data, column, **kwargs):
 def plot_PCA_ratio(data):
     explained_variance = define_variance(data)
     PCAS_COUNT = 30
-    
+
     plt.plot(explained_variance[:PCAS_COUNT], "o-")
     plt.xticks(
         range(PCAS_COUNT),
@@ -133,30 +132,46 @@ def plot_PCA_ratio(data):
     figsize=(12, 6),
     ylabel="Variance Explained",
     xlabel="Principal Component",
-    filename="pca_95_plot.svg",
+    dynamic_params_func=lambda data, variance_threshold, max_components: {
+        "filename": sanitize_filename(f"pca_{variance_threshold}_plot.svg")
+    },
 )
-def plot_95_variance(data):
+def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwargs):
     explained_variance = define_variance(data)
     cumulative_variance = np.cumsum(explained_variance)
-    num_components_95 = np.argmax(cumulative_variance >= 0.95) + 1
+    num_components = np.argmax(cumulative_variance >= variance_threshold) + 1
 
-    # Plotting
+    explained_variance_limited = explained_variance[:max_components]
+    cumulative_variance_limited = cumulative_variance[:max_components]
+
     plt.figure(figsize=(12, 6))
-    plt.plot(explained_variance, "o-", label="Individual Explained Variance")
-    plt.plot(cumulative_variance, "o-", label="Cumulative Explained Variance")
+    plt.plot(explained_variance_limited, "o-", label="Individual Explained Variance")
+    plt.plot(cumulative_variance_limited, "o-", label="Cumulative Explained Variance")
 
-    plt.axhline(y=0.95, color="r", linestyle="--")
-    plt.axvline(x=num_components_95 - 1, color="g", linestyle="--")
+    plt.axhline(y=variance_threshold, color="r", linestyle="--")
 
-    plt.legend(loc="best")
-    plt.text(
-        num_components_95,
-        0.95,
-        f" 95% cut-off\n {num_components_95} components",
-        color="g",
+    if num_components <= max_components:
+        plt.axvline(x=num_components - 1, color="g", linestyle="--")
+        plt.text(
+            num_components,
+            variance_threshold,
+            f" {variance_threshold} cut-off\n {num_components} components",
+            color="g",
+        )
+
+    plt.xticks(
+        range(max_components),
+        [f"PC{i+1}" for i in range(max_components)],
+        rotation=45,
+        ha="right",
+        fontsize=8,
     )
 
-    print(f"Number of components that explain 95% variance: {num_components_95}")
+    plt.xlim([0, max_components - 1])
+    plt.legend(loc="best")
+    plt.tight_layout()
+
+    print(f"PCAs that explain {variance_threshold} variance: {num_components}")
 
 
 def main():
@@ -174,9 +189,10 @@ def main():
     #     except Exception as e:
     #         print(f"An error occurred while plotting column {column}: {e}")
 
-    IMAGE_DIRECTORY = f"./dataset_images/"
+    IMAGE_DIRECTORY = f"./dataset_images/PCAs/"
     plot_PCA_ratio(data)
-    plot_95_variance(data)
+    plot_PCA_variance_capture(data, variance_threshold=0.95, max_components=40)
+    plot_PCA_variance_capture(data, variance_threshold=0.75, max_components=40)
 
 
 if __name__ == "__main__":
