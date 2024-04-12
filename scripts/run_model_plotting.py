@@ -21,5 +21,5 @@ def run_script(script_path):
 
 
 if __name__ == "__main__":
-    script_path = "./src/evaluation/plots.py"
+    script_path = "./src/evaluation/model_plots.py"
     run_script(script_path)

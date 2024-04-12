@@ -12,3 +12,4 @@ dependencies:
   - seaborn
   - shap
   - scikit-optimize
+  - tqdm

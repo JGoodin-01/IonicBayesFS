@@ -12,12 +12,18 @@ def train_and_evaluate():
     subprocess.run(["python", "-m", "scripts.train_and_evaluate"], check=True)
 
 
-def run_plotting():
+def run_dataset_plotting():
     """Run the data plotting script."""
-    subprocess.run(["python", "./scripts/run_plotting.py"], check=True)
+    subprocess.run(["python", "./scripts/run_dataset_plotting.py"], check=True)
+
+
+def run_model_plotting():
+    """Run the data plotting script."""
+    subprocess.run(["python", "./scripts/run_model_plotting.py"], check=True)
 
 
 if __name__ == "__main__":
     run_preprocessing()
+    # run_dataset_plotting()
     train_and_evaluate()
-    run_plotting()
+    run_model_plotting()

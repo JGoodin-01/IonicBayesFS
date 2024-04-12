@@ -1,4 +1,5 @@
 import os
+from functools import wraps
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,10 +10,8 @@ from sklearn.metrics import (
     recall_score,
     r2_score,
 )
-from functools import wraps
 
-# Global variable for directory
-IMAGE_DIRECTORY = "./images"
+IMAGE_DIRECTORY = "./model_images"
 
 
 def plot_wrapper(
@@ -55,6 +54,16 @@ def plot_wrapper(
     return decorator
 
 
+def determine_cluster(values, num_clusters=5):
+    quantiles = np.linspace(0, 1, num_clusters + 1)
+    bin_edges = np.quantile(values, quantiles)
+
+    clusters = np.digitize(values, bin_edges, right=False)
+    clusters = clusters - 1
+
+    return clusters
+
+
 def calculate_errors(data, techniques, fold_numbers):
     """Calculate absolute errors for each feature selection technique."""
     for technique in techniques:
@@ -72,22 +81,6 @@ def confusion_matrices(data, techniques):
 
     for technique in techniques:
         plot_confusion_matrix(data, technique)
-
-
-def determine_cluster(values, num_clusters=5):
-    # Determine the quantile-based bins for the clusters
-    quantiles = np.linspace(0, 1, num_clusters + 1)
-    bin_edges = np.quantile(values, quantiles)
-
-    # Assign each value to a cluster based on the bin edges
-    clusters = np.digitize(
-        values, bin_edges, right=False
-    )  # This assigns bins from 1 to 5
-
-    # Offset clusters to be within the range of 0 to num_clusters - 1
-    clusters = clusters - 1
-
-    return clusters
 
 
 @plot_wrapper(
@@ -360,7 +353,7 @@ def main():
         if file.endswith("_results.xlsx"):
             file_path = os.path.join("./", file)
             technique_prefix = file_path.split("/")[-1].split("_")[0]
-            IMAGE_DIRECTORY = f"./images/{technique_prefix}"
+            IMAGE_DIRECTORY = f"./model_images/{technique_prefix}"
 
             pred_data = pd.read_excel(file_path, sheet_name="Predictions")
 
