@@ -169,17 +169,22 @@ def main():
     #         print(f"An error occurred while plotting column {column}: {e}")
 
     IMAGE_DIRECTORY = f"./dataset_images/PCAs/"
-    targetless_data = data.drop(columns=["η / mPa s"])
-
-    plot_PCA_ratio(targetless_data)
+    continuous_data = data.drop(columns=["η / mPa s"])
+    unique_threshold = 10  # or some other number that makes sense for your data
+    continuous_columns = [col for col in continuous_data.columns if 
+                          (continuous_data[col].dtype in ['float64', 'int64']) and
+                          (continuous_data[col].nunique() > unique_threshold)]
+    continuous_data = continuous_data[continuous_columns]
+    
+    plot_PCA_ratio(continuous_data)
     plot_PCA_variance_capture(
-        targetless_data, variance_threshold=0.95, max_components=30
+        continuous_data, variance_threshold=0.95, max_components=30
     )
     plot_PCA_variance_capture(
-        targetless_data, variance_threshold=0.75, max_components=30
+        continuous_data, variance_threshold=0.75, max_components=30
     )
-    plot_feature_variances(targetless_data, n_components=7)
-    plot_feature_variances(targetless_data, n_components=25)
+    plot_feature_variances(continuous_data, n_components=6)
+    plot_feature_variances(continuous_data, n_components=25)
 
 
 if __name__ == "__main__":
