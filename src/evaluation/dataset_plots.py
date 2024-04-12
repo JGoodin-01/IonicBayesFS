@@ -6,13 +6,17 @@ from sklearn.impute import SimpleImputer
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from functools import wraps
+from plot_utils import plot_wrapper
 from tqdm import tqdm
 import signal
 from contextlib import contextmanager
 import numpy as np
 
-IMAGE_DIRECTORY = "./dataset_images"
+IMAGE_DIRECTORY = f"./dataset_images/"
+
+
+def get_current_image_directory():
+    return IMAGE_DIRECTORY
 
 
 class TimeoutException(Exception):
@@ -52,52 +56,13 @@ def define_variance(data):
     return pca.explained_variance_ratio_
 
 
-def plot_wrapper(
-    figsize=(8, 6),
-    xlabel="",
-    ylabel="",
-    scale=None,
-    filename="image.svg",
-    dynamic_params_func=None,
-):
-    def decorator(plot_func):
-        @wraps(plot_func)
-        def wrapper(*args, **kwargs):
-            global IMAGE_DIRECTORY
-
-            # Dynamic parameter processing
-            if dynamic_params_func is not None:
-                dynamic_params = dynamic_params_func(*args, **kwargs)
-                dynamic_filename = dynamic_params.get("filename", filename)
-            else:
-                dynamic_filename = filename
-
-            if figsize is not None:
-                plt.figure(figsize=figsize)
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            if scale is not None:
-                plt.yscale(scale)
-                plt.xscale(scale)
-
-            plot_func(*args, **kwargs)
-
-            if not os.path.exists(IMAGE_DIRECTORY):
-                os.makedirs(IMAGE_DIRECTORY)
-            plt.savefig(os.path.join(IMAGE_DIRECTORY, dynamic_filename), format="svg")
-            plt.close()
-
-        return wrapper
-
-    return decorator
-
-
 @plot_wrapper(
     figsize=(12, 6),
     ylabel="Variance",
     dynamic_params_func=lambda data, column: {
         "filename": sanitize_filename(f"{column}_variance.svg")
     },
+    get_image_directory=get_current_image_directory,
 )
 def plot_variance(data, column, **kwargs):
     # Plot a histogram for the descriptor
@@ -112,6 +77,7 @@ def plot_variance(data, column, **kwargs):
     ylabel="Variance Explained",
     xlabel="Principal Component",
     filename="pca_plot.svg",
+    get_image_directory=get_current_image_directory,
 )
 def plot_PCA_ratio(data):
     explained_variance = define_variance(data)
@@ -135,6 +101,7 @@ def plot_PCA_ratio(data):
     dynamic_params_func=lambda data, variance_threshold, max_components: {
         "filename": sanitize_filename(f"pca_{variance_threshold}_plot.svg")
     },
+    get_image_directory=get_current_image_directory,
 )
 def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwargs):
     explained_variance = define_variance(data)
@@ -176,18 +143,19 @@ def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwa
 
 def main():
     global IMAGE_DIRECTORY
-    IMAGE_DIRECTORY = f"./dataset_images/variances/"
-    data = pd.read_csv("./data/processed.csv")
 
+    data = pd.read_csv("./data/processed.csv")
     data.drop(columns=["SMILES"], inplace=True)
-    # for column in tqdm(data.columns, desc="Plotting variances"):
-    #     try:
-    #         with time_limit(30):
-    #             plot_variance(data, column)
-    #     except TimeoutException as e:
-    #         print(f"Timed out on column {column}")
-    #     except Exception as e:
-    #         print(f"An error occurred while plotting column {column}: {e}")
+
+    IMAGE_DIRECTORY = f"./dataset_images/variances/"
+    for column in tqdm(data.columns, desc="Plotting variances"):
+        try:
+            with time_limit(30):
+                plot_variance(data, column)
+        except TimeoutException as e:
+            print(f"Timed out on column {column}")
+        except Exception as e:
+            print(f"An error occurred while plotting column {column}: {e}")
 
     IMAGE_DIRECTORY = f"./dataset_images/PCAs/"
     plot_PCA_ratio(data)

@@ -1,5 +1,5 @@
 import os
-from functools import wraps
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,48 +10,13 @@ from sklearn.metrics import (
     recall_score,
     r2_score,
 )
+from plot_utils import plot_wrapper
 
 IMAGE_DIRECTORY = "./model_images"
 
 
-def plot_wrapper(
-    figsize=(8, 6),
-    xlabel="",
-    ylabel="",
-    scale=None,
-    filename="image.svg",
-    dynamic_params_func=None,
-):
-    def decorator(plot_func):
-        @wraps(plot_func)
-        def wrapper(*args, **kwargs):
-            global IMAGE_DIRECTORY
-
-            # Dynamic parameter processing
-            if dynamic_params_func is not None:
-                dynamic_params = dynamic_params_func(*args, **kwargs)
-                dynamic_filename = dynamic_params.get("filename", filename)
-            else:
-                dynamic_filename = filename
-
-            if figsize is not None:
-                plt.figure(figsize=figsize)
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            if scale is not None:
-                plt.yscale(scale)
-                plt.xscale(scale)
-
-            plot_func(*args, **kwargs)
-
-            if not os.path.exists(IMAGE_DIRECTORY):
-                os.makedirs(IMAGE_DIRECTORY)
-            plt.savefig(os.path.join(IMAGE_DIRECTORY, dynamic_filename), format="svg")
-            plt.close()
-
-        return wrapper
-
-    return decorator
+def get_current_image_directory():
+    return IMAGE_DIRECTORY
 
 
 def determine_cluster(values, num_clusters=5):
@@ -90,6 +55,7 @@ def confusion_matrices(data, techniques):
     dynamic_params_func=lambda data, technique: {
         "filename": f"{technique}_confusion_matrix.svg"
     },
+    get_image_directory=get_current_image_directory,
 )
 def plot_confusion_matrix(data, technique, **kwargs):
     data[f"{technique} Predicted Cluster"] = determine_cluster(
@@ -220,7 +186,11 @@ def plot_confusion_matrix(data, technique, **kwargs):
     plt.subplots_adjust(left=0.15)
 
 
-@plot_wrapper(ylabel="Mean Absolute Error", filename="MAE_Comparison_Techniques.svg")
+@plot_wrapper(
+    ylabel="Mean Absolute Error",
+    filename="MAE_Comparison_Techniques.svg",
+    get_image_directory=get_current_image_directory,
+)
 def plot_mae(data, techniques):
     """Compare the mean absolute error of each technique with a bar chart."""
 
@@ -233,6 +203,7 @@ def plot_mae(data, techniques):
     ylabel="Predicted",
     scale="log",
     filename="Avg_Actual_vs_Predicted.svg",
+    get_image_directory=get_current_image_directory,
 )
 def plot_scatter(data, techniques):
     """Generate a scatter plot for actual vs. average predicted values for each technique with shaded confidence intervals representing the standard deviation across folds."""
@@ -284,6 +255,7 @@ def average_folds_predictions(data, techniques, fold_numbers):
 @plot_wrapper(
     xlabel="Average Feature Importance",
     filename="Feature_Importance.svg",
+    get_image_directory=get_current_image_directory,
 )
 def plot_feature_importances(feature_data):
     # Extract technique names
@@ -329,7 +301,12 @@ def plot_feature_importances(feature_data):
         plt.tight_layout()
 
 
-@plot_wrapper(xlabel="Predicted", ylabel="Residuals", filename="Residuals_Plot.svg")
+@plot_wrapper(
+    xlabel="Predicted",
+    ylabel="Residuals",
+    filename="Residuals_Plot.svg",
+    get_image_directory=get_current_image_directory,
+)
 def plot_residuals(data, technique):
     """
     Plot the residuals for a given prediction technique.
