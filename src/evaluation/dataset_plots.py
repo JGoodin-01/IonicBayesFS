@@ -1,43 +1,25 @@
+# Standard Library Imports
 import os
-import re
+import sys
+
+# Third-Party Library Imports
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.impute import SimpleImputer
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-from plot_utils import plot_wrapper
 from tqdm import tqdm
-import signal
-from contextlib import contextmanager
-import numpy as np
+
+# Local Application Imports
+from plot_utils import plot_wrapper, TimeoutException, time_limit, sanitize_filename
 
 IMAGE_DIRECTORY = f"./dataset_images/"
 
 
 def get_current_image_directory():
     return IMAGE_DIRECTORY
-
-
-class TimeoutException(Exception):
-    pass
-
-
-@contextmanager
-def time_limit(seconds):
-    def signal_handler(signum, frame):
-        raise TimeoutException("Timed out!")
-
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
-    try:
-        yield
-    finally:
-        signal.alarm(0)
-
-
-def sanitize_filename(filename):
-    return re.sub(r'[\\/*?:"<>|]', "_", filename)
 
 
 def define_variance(data):

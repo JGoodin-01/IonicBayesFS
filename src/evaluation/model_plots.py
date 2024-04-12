@@ -1,44 +1,27 @@
+# Standard library imports
 import os
+import sys
 
+# Third-party library imports
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import (
-    confusion_matrix,
-    precision_score,
-    recall_score,
-    r2_score,
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, r2_score
+
+# Local application imports
+from plot_utils import (
+    plot_wrapper,
+    determine_cluster,
+    calculate_errors,
+    average_folds_predictions,
 )
-from plot_utils import plot_wrapper
 
 IMAGE_DIRECTORY = "./model_images"
 
 
 def get_current_image_directory():
     return IMAGE_DIRECTORY
-
-
-def determine_cluster(values, num_clusters=5):
-    quantiles = np.linspace(0, 1, num_clusters + 1)
-    bin_edges = np.quantile(values, quantiles)
-
-    clusters = np.digitize(values, bin_edges, right=False)
-    clusters = clusters - 1
-
-    return clusters
-
-
-def calculate_errors(data, techniques, fold_numbers):
-    """Calculate absolute errors for each feature selection technique."""
-    for technique in techniques:
-        fold_columns = [f"{technique}_Predicted_{fold}" for fold in fold_numbers]
-        predicted_column = f"{technique}_Predicted_Avg"
-        data[f"{technique}_Error"] = np.abs(data["Actual"] - data[predicted_column])
-        data[f"{technique}_Predicted_SEM"] = data[fold_columns].std(axis=1) / np.sqrt(
-            len(fold_numbers)
-        )
-    return data
 
 
 def confusion_matrices(data, techniques):
@@ -230,26 +213,6 @@ def plot_scatter(data, techniques):
         )
 
     plt.legend(loc="best")
-
-
-def average_folds_predictions(data, techniques, fold_numbers):
-    """
-    For each technique, calculate the average prediction across all folds and store it in a new column.
-
-    Parameters:
-    data (DataFrame): The pandas DataFrame containing the prediction data.
-    techniques (list): A list of the feature selection techniques used.
-    fold_numbers (list): A list of fold numbers to be averaged.
-
-    Returns:
-    DataFrame: The original DataFrame with new columns for the average predictions of each technique.
-    """
-    for technique in techniques:
-        fold_columns = [f"{technique}_Predicted_{fold}" for fold in fold_numbers]
-        data[f"{technique}_Predicted_Avg"] = data[fold_columns].mean(axis=1)
-        data[f"{technique}_Predicted_Std"] = data[fold_columns].std(axis=1)
-
-    return data
 
 
 @plot_wrapper(
