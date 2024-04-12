@@ -22,20 +22,21 @@ def get_current_image_directory():
     return IMAGE_DIRECTORY
 
 
-def define_variance(data):
-    targetless_data = data.drop(columns=["η / mPa s"])
-
+def define_variance(data, n_components=None):
     for col in data.select_dtypes(include=["object"]).columns:
-        targetless_data[col] = LabelEncoder().fit_transform(data[col])
+        data[col] = LabelEncoder().fit_transform(data[col])
 
     imputer = SimpleImputer(strategy="mean")
     scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(imputer.fit_transform(targetless_data))
+    scaled_data = scaler.fit_transform(imputer.fit_transform(data))
 
-    pca = PCA()
+    if n_components is not None:
+        pca = PCA(n_components=n_components)
+    else:
+        pca = PCA()
     pca.fit(scaled_data)
 
-    return pca.explained_variance_ratio_
+    return pca
 
 
 @plot_wrapper(
@@ -62,7 +63,7 @@ def plot_variance(data, column, **kwargs):
     get_image_directory=get_current_image_directory,
 )
 def plot_PCA_ratio(data):
-    explained_variance = define_variance(data)
+    explained_variance = define_variance(data).explained_variance_ratio_
     PCAS_COUNT = 30
 
     plt.plot(explained_variance[:PCAS_COUNT], "o-")
@@ -78,22 +79,21 @@ def plot_PCA_ratio(data):
 
 @plot_wrapper(
     figsize=(12, 6),
-    ylabel="Variance Explained",
-    xlabel="Principal Component",
+    ylabel="Variance",
+    xlabel="Principal Components",
     dynamic_params_func=lambda data, variance_threshold, max_components: {
         "filename": sanitize_filename(f"pca_{variance_threshold}_plot.svg")
     },
     get_image_directory=get_current_image_directory,
 )
 def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwargs):
-    explained_variance = define_variance(data)
+    explained_variance = define_variance(data).explained_variance_ratio_
     cumulative_variance = np.cumsum(explained_variance)
     num_components = np.argmax(cumulative_variance >= variance_threshold) + 1
 
     explained_variance_limited = explained_variance[:max_components]
     cumulative_variance_limited = cumulative_variance[:max_components]
 
-    plt.figure(figsize=(12, 6))
     plt.plot(explained_variance_limited, "o-", label="Individual Explained Variance")
     plt.plot(cumulative_variance_limited, "o-", label="Cumulative Explained Variance")
 
@@ -102,10 +102,13 @@ def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwa
     if num_components <= max_components:
         plt.axvline(x=num_components - 1, color="g", linestyle="--")
         plt.text(
-            num_components,
-            variance_threshold,
+            num_components,  # Slightly offset from the crossing point
+            variance_threshold - 0.1,  # Slightly higher above the crossing point
             f" {variance_threshold} cut-off\n {num_components} components",
             color="g",
+            fontsize=10,
+            ha="left",  # Horizontal alignment to the left of the point
+            va="bottom",  # Vertical alignment below the point
         )
 
     plt.xticks(
@@ -113,14 +116,40 @@ def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwa
         [f"PC{i+1}" for i in range(max_components)],
         rotation=45,
         ha="right",
-        fontsize=8,
     )
 
     plt.xlim([0, max_components - 1])
     plt.legend(loc="best")
     plt.tight_layout()
 
-    print(f"PCAs that explain {variance_threshold} variance: {num_components}")
+
+@plot_wrapper(
+    figsize=(15, 6),
+    xlabel="Features",
+    ylabel="Sum of Squared Loadings",
+    filename="feature_variances.svg",
+    dynamic_params_func=lambda data, n_components: {
+        "filename": sanitize_filename(f"feature_variances_{n_components}.svg")
+    },
+    get_image_directory=get_current_image_directory,
+)
+def plot_feature_variances(data, n_components=10):
+    pca = define_variance(data, n_components=n_components)
+
+    # Sum the squared loadings for each feature
+    loadings = pca.components_
+    feature_variances = np.sum(loadings**2, axis=0)
+
+    # Create a DataFrame of the feature variances
+    feature_variance_df = pd.DataFrame(
+        feature_variances, index=data.columns, columns=["Variance"]
+    )
+    feature_variance_df.sort_values(by="Variance", ascending=False, inplace=True)
+
+    # Plot
+    sns.barplot(x=feature_variance_df.index, y=feature_variance_df["Variance"])
+    plt.xticks(rotation=90)
+    plt.tight_layout()
 
 
 def main():
@@ -129,20 +158,28 @@ def main():
     data = pd.read_csv("./data/processed.csv")
     data.drop(columns=["SMILES"], inplace=True)
 
-    IMAGE_DIRECTORY = f"./dataset_images/variances/"
-    for column in tqdm(data.columns, desc="Plotting variances"):
-        try:
-            with time_limit(30):
-                plot_variance(data, column)
-        except TimeoutException as e:
-            print(f"Timed out on column {column}")
-        except Exception as e:
-            print(f"An error occurred while plotting column {column}: {e}")
+    # IMAGE_DIRECTORY = f"./dataset_images/variances/"
+    # for column in tqdm(data.columns, desc="Plotting variances"):
+    #     try:
+    #         with time_limit(30):
+    #             plot_variance(data, column)
+    #     except TimeoutException as e:
+    #         print(f"Timed out on column {column}")
+    #     except Exception as e:
+    #         print(f"An error occurred while plotting column {column}: {e}")
 
     IMAGE_DIRECTORY = f"./dataset_images/PCAs/"
-    plot_PCA_ratio(data)
-    plot_PCA_variance_capture(data, variance_threshold=0.95, max_components=40)
-    plot_PCA_variance_capture(data, variance_threshold=0.75, max_components=40)
+    targetless_data = data.drop(columns=["η / mPa s"])
+
+    plot_PCA_ratio(targetless_data)
+    plot_PCA_variance_capture(
+        targetless_data, variance_threshold=0.95, max_components=30
+    )
+    plot_PCA_variance_capture(
+        targetless_data, variance_threshold=0.75, max_components=30
+    )
+    plot_feature_variances(targetless_data, n_components=7)
+    plot_feature_variances(targetless_data, n_components=25)
 
 
 if __name__ == "__main__":
