@@ -4,7 +4,7 @@ from src.EXPERIMENT_CONFIGS import EXPERIMENT_CONFIGS
 
 
 if __name__ == "__main__":
-    data = pd.read_csv("./data/processed.csv").dropna(subset=["η / mPa s"])
+    data = pd.read_csv("./data/processed_with_pca.csv").dropna(subset=["η / mPa s"])
     X, y = data.drop("η / mPa s", axis=1), data["η / mPa s"].values
     runner = ExperimentRunner(EXPERIMENT_CONFIGS)
 
