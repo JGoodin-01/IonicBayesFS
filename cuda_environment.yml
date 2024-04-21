@@ -21,3 +21,4 @@ dependencies:
   - numba
   - scikit-optimize
   - tqdm
+  - tabulate

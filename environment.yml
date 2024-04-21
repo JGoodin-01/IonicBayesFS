@@ -13,3 +13,4 @@ dependencies:
   - shap
   - scikit-optimize
   - tqdm
+  - tabulate
