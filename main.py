@@ -34,19 +34,19 @@ def run_training():
     feature_selection_strategies = [
         {"name": "Base"},
         {"name": "SelectKBest"},
-        # {"name": "RFE"},
-        # {"name": "BFS"},
+        {"name": "RFE"},
+        {"name": "BFS"},
     ]
 
-    runner.run_cross_experiment(X, y, feature_selection_strategies)
+    runner.run_cross_experiment(X, y, feature_selection_strategies, n_splits=10)
 
 
 if __name__ == "__main__":
     # Run pre-training scripts
-    # run_script("./src/preprocessing/preprocessing.py")
-    run_script("./src/evaluation/dataset_plots.py")
-    run_script("./src/preprocessing/PCAs.py")
+    # run_script("./src/preprocessing/preprocess.py")
+    # run_script("./src/preprocessing/PCAs.py")
+    # run_script("./src/evaluation/dataset_plots.py")
 
     # Run training & evaluation
     # run_training()
-    # run_script("./src/evaluation/model_plots.py")
+    run_script("./src/evaluation/model_plots.py")

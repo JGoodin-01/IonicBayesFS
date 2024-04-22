@@ -5,7 +5,7 @@ from src.training.OptimizationManager import OptimizationManager
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import KFold
 from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
-
+from tabulate import tabulate
 
 class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
     def __init__(self, config):
@@ -28,18 +28,6 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
     def reset_experiment(self):
         self.logger.clear_logs()
         self.opt.reset_space()
-
-    def print_table(self, headers, rows):
-        column_widths = [
-            max(len(str(item)) for item in col) for col in zip(*([headers] + rows))
-        ]
-        row_format = "".join(["{:<" + str(width + 2) + "}" for width in column_widths])
-
-        print(row_format.format(*headers))
-        print("-" * sum(column_widths))
-
-        for row in rows:
-            print(row_format.format(*row))
 
     def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
@@ -155,7 +143,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                     [fs_strategy["name"], "Validation", val_avg_r2, val_avg_mse],
                     [fs_strategy["name"], "Testing", test_avg_r2, test_avg_mse],
                 ]
-                self.print_table(headers, rows)
+                print(tabulate(rows, headers=headers, tablefmt="grid"))
 
             self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
             self.reset_experiment()
