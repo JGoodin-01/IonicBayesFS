@@ -27,6 +27,10 @@ feature_groups = {
     "SlogP_VSA": [col for col in data.columns if "SlogP_VSA" in col],
     "EState_VSA": [col for col in data.columns if "EState_VSA" in col],
     "VSA_EState": [col for col in data.columns if "VSA_EState" in col],
+    "MolWt": [col for col in data.columns if "MolWt" in col],
+    "PartialCharge": [col for col in data.columns if "PartialCharge" in col],
+    "FpDensityMorgan": [col for col in data.columns if "FpDensityMorgan" in col],
+    "Molecular_Features": [col for col in data.columns if "Num" in col or "Count" in col],
     "Functional_Groups": [col for col in data.columns if col.startswith("fr_")],
 }
 
