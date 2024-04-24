@@ -8,10 +8,12 @@ from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
 from tabulate import tabulate
 
 class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
-    def __init__(self, config):
+    def __init__(self, config, save_folder=None):
         self.model = None
         self.config = config
         self.logger = ExcelLogger()
+        if save_folder:
+            self.logger.set_save_folder(save_folder)
         self.opt = OptimizationManager()
 
     def record_predictions(self, model, X, y, strategy_name, phase, fold_index):

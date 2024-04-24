@@ -8,6 +8,10 @@ class ExcelLogger:
         self.metrics_log = pd.DataFrame()
         self.params_log = pd.DataFrame()
         self.actual_test_values = None
+        self.save_folder = "./"
+
+    def set_save_folder(self, save_folder):
+        self.save_folder = save_folder
 
     def set_actual_test_values(self, y_test):
         # Store the actual test values only once
@@ -25,14 +29,16 @@ class ExcelLogger:
             feature_rankings = {feature: 1 for feature in X.columns}
         else:
             feature_rankings = {feature: None for feature in X.columns}
-            for rank, feature_index in enumerate(ranking[:fs_strategy["N"]], start=1):
+            for rank, feature_index in enumerate(ranking[: fs_strategy["N"]], start=1):
                 if feature_index < len(X.columns):
                     feature_name = X.columns[feature_index]
                     feature_rankings[feature_name] = rank
                 else:
                     print(f"Warning: Accessed out-of-range index {feature_index}")
 
-        features_df = pd.DataFrame(feature_rankings, index=[f"{fs_strategy['name']}_{fold_index}"])
+        features_df = pd.DataFrame(
+            feature_rankings, index=[f"{fs_strategy['name']}_{fold_index}"]
+        )
         if self.features_log.empty:
             self.features_log = features_df
         else:
@@ -62,7 +68,8 @@ class ExcelLogger:
         ]
 
     def save_logs(self, filename):
-        with pd.ExcelWriter(filename) as writer:
+        file_location = f"{self.save_folder}{filename}"
+        with pd.ExcelWriter(file_location) as writer:
             if not self.predictions_log.empty:
                 self.predictions_log.to_excel(
                     writer, sheet_name="Predictions", index=False
