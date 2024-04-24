@@ -8,13 +8,14 @@ from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
 from tabulate import tabulate
 
 class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
-    def __init__(self, config, save_folder=None):
+    def __init__(self, config, save_folder=None, random_state=42):
         self.model = None
         self.config = config
         self.logger = ExcelLogger()
         if save_folder:
             self.logger.set_save_folder(save_folder)
         self.opt = OptimizationManager()
+        self.random_state = random_state
 
     def record_predictions(self, model, X, y, strategy_name, phase, fold_index):
         predictions = model.predict(X)
@@ -33,7 +34,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
 
     def run_cross_experiment(self, X, y, feature_selection_strategies, n_splits=2):
         X_train_full_scaled, X_test_scaled, y_train_full, y_test = (
-            self.split_and_scale_data(X, y)
+            self.split_and_scale_data(X, y, random_state=self.random_state)
         )
         self.logger.set_actual_test_values(y_test)
 
@@ -42,7 +43,7 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
             model_name = model().__class__.__name__
             print(f"Running experiment for {model_name}...")
 
-            kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+            kf = KFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
             self.opt.configure_search_space(model_details)
             for fs_strategy in feature_selection_strategies:
                 val_r2_scores, test_r2_scores = [], []

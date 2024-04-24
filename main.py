@@ -45,7 +45,7 @@ def run_training(
 
     data = pd.read_csv(source_csv).dropna(subset=["η / mPa s"])
     X, y = data.drop("η / mPa s", axis=1), data["η / mPa s"].values
-    runner.run_cross_experiment(X, y, feature_selection_strategies, n_splits=2)
+    runner.run_cross_experiment(X, y, feature_selection_strategies, n_splits=5)
 
 
 if __name__ == "__main__":
@@ -57,16 +57,17 @@ if __name__ == "__main__":
     # Run training & evaluation
     feature_selection_strategies = [
         {"name": "Base"},
-        # {"name": "SelectKBest"},
-        # {"name": "RFE"},
-        # {"name": "BFS"},
+        {"name": "SelectKBest"},
+        {"name": "RFE"},
+        {"name": "BFS"},
     ]
 
-    # Pre feature engineering
+    # Pre feature engineering & selection
     save_folder = "./pre_fe_results/"
-    run_training("./data/processed.csv", feature_selection_strategies, save_folder)
+    run_training("./data/processed.csv", [feature_selection_strategies[0]], save_folder)
 
-    # Post feature engineering
+    # Post feature engineering & selection
     save_folder = "./post_fe_results/"
     run_training("./data/processed_with_pca.csv", feature_selection_strategies, save_folder)
-    # run_script("./src/evaluation/model_plots.py")
+    
+    run_script("./src/evaluation/model_plots.py")

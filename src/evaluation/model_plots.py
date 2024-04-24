@@ -289,36 +289,66 @@ def plot_residuals(data, technique):
 
 def main():
     global IMAGE_DIRECTORY
-    for file in os.listdir("./"):
-        if file.endswith("_results.xlsx"):
-            file_path = os.path.join("./", file)
-            technique_prefix = file_path.split("/")[-1].split("_")[0]
-            IMAGE_DIRECTORY = f"./model_images/{technique_prefix}"
+    for root, dirs, files in os.walk("."):
+        for dir in dirs:
+            if "results" in dir:
+                # Construct the path to the directory
+                results_directory = os.path.join(root, dir)
+                print(f"Processing directory: {results_directory}")
 
-            pred_data = pd.read_excel(file_path, sheet_name="Predictions")
+                # List Excel files in the identified directory
+                for file in os.listdir(results_directory):
+                    if file.endswith("_results.xlsx"):
+                        file_path = os.path.join(results_directory, file)
+                        technique_prefix = file.split("_")[0]
+                        IMAGE_DIRECTORY = os.path.join(
+                            results_directory, "model_images", technique_prefix
+                        )
+                        if not os.path.exists(IMAGE_DIRECTORY):
+                            os.makedirs(IMAGE_DIRECTORY)
+                        print(f"Processing file: {file_path}")
 
-            prediction_columns = [
-                col for col in pred_data.columns if "_Predicted" in col
-            ]
-            techniques = list(
-                set(col.split("_Predicted_")[0] for col in prediction_columns)
-            )
-            fold_numbers = list(
-                set(col.split("_Predicted_")[-1] for col in prediction_columns)
-            )
+                        try:
+                            pred_data = pd.read_excel(
+                                file_path, sheet_name="Predictions"
+                            )
+                            prediction_columns = [
+                                col for col in pred_data.columns if "_Predicted" in col
+                            ]
+                            techniques = list(
+                                set(
+                                    col.split("_Predicted_")[0]
+                                    for col in prediction_columns
+                                )
+                            )
+                            fold_numbers = list(
+                                set(
+                                    col.split("_Predicted_")[-1]
+                                    for col in prediction_columns
+                                )
+                            )
 
-            pred_data = average_folds_predictions(pred_data, techniques, fold_numbers)
-            pred_data = calculate_errors(pred_data, techniques, fold_numbers)
+                            pred_data = average_folds_predictions(
+                                pred_data, techniques, fold_numbers
+                            )
+                            pred_data = calculate_errors(
+                                pred_data, techniques, fold_numbers
+                            )
 
-            plot_scatter(pred_data, techniques)
-            plot_mae(pred_data, techniques)
-            confusion_matrices(pred_data, techniques)
+                            plot_scatter(pred_data, techniques)
+                            plot_mae(pred_data, techniques)
+                            confusion_matrices(pred_data, techniques)
 
-            for technique in techniques:
-                plot_residuals(pred_data, technique)
+                            for technique in techniques:
+                                plot_residuals(pred_data, technique)
 
-            feature_data = pd.read_excel(file_path, sheet_name="Features")
-            plot_feature_importances(feature_data)
+                            if "post_fe" in results_directory:
+                                feature_data = pd.read_excel(
+                                    file_path, sheet_name="Features"
+                                )
+                                plot_feature_importances(feature_data)
+                        except Exception as e:
+                            print(f"Failed to process {file_path}: {str(e)}")
 
 
 if __name__ == "__main__":
