@@ -152,13 +152,42 @@ def plot_feature_variances(data, n_components=10):
     plt.tight_layout()
 
 
+@plot_wrapper(
+    figsize=(15, 15),
+    xlabel="Features",
+    ylabel="Features",
+    dynamic_params_func=lambda data: {
+        "filename": sanitize_filename(f"{len(data.columns)}_correlation_matrix.svg")
+    },
+    get_image_directory=get_current_image_directory,
+)
+def plot_correlation_matrix(data, **kwargs):
+    # Ensure data has only numeric columns
+    numeric_data = data.select_dtypes(include=[np.number])
+    correlation_matrix = numeric_data.corr()
+
+    # Generate a heatmap using seaborn
+    sns.heatmap(
+        correlation_matrix,
+        annot=False,  # Turn off annotations for large matrices
+        fmt=".2f",
+        cmap="coolwarm",
+        xticklabels=numeric_data.columns,
+        yticklabels=numeric_data.columns,
+        cbar=False,  # Consider enabling the color bar for scale reference
+    )
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.tight_layout()
+
+
 def main():
     global IMAGE_DIRECTORY
 
     data = pd.read_csv("./data/processed.csv")
     data.drop(columns=["SMILES"], inplace=True)
 
-    # IMAGE_DIRECTORY = f"./dataset_images/variances/"
+    IMAGE_DIRECTORY = f"./dataset_images/variances/"
     # for column in tqdm(data.columns, desc="Plotting variances"):
     #     try:
     #         with time_limit(30):
@@ -171,11 +200,14 @@ def main():
     IMAGE_DIRECTORY = f"./dataset_images/PCAs/"
     continuous_data = data.drop(columns=["η / mPa s"])
     unique_threshold = 10  # or some other number that makes sense for your data
-    continuous_columns = [col for col in continuous_data.columns if 
-                          (continuous_data[col].dtype in ['float64', 'int64']) and
-                          (continuous_data[col].nunique() > unique_threshold)]
+    continuous_columns = [
+        col
+        for col in continuous_data.columns
+        if (continuous_data[col].dtype in ["float64", "int64"])
+        and (continuous_data[col].nunique() > unique_threshold)
+    ]
     continuous_data = continuous_data[continuous_columns]
-    
+
     plot_PCA_ratio(continuous_data)
     plot_PCA_variance_capture(
         continuous_data, variance_threshold=0.95, max_components=30
@@ -185,6 +217,12 @@ def main():
     )
     plot_feature_variances(continuous_data, n_components=6)
     plot_feature_variances(continuous_data, n_components=25)
+
+    IMAGE_DIRECTORY = f"./dataset_images/"
+    plot_correlation_matrix(data)
+
+    pca_data = pd.read_csv("./data/processed_with_pca.csv")
+    plot_correlation_matrix(pca_data)
 
 
 if __name__ == "__main__":
