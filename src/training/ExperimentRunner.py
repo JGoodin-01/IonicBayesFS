@@ -7,6 +7,7 @@ from sklearn.model_selection import KFold
 from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
 from tabulate import tabulate
 
+
 class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
     def __init__(self, config, save_folder=None, random_state=42):
         self.model = None
@@ -46,8 +47,8 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
             self.opt.configure_search_space(model_details)
             for fs_strategy in feature_selection_strategies:
-                val_r2_scores, test_r2_scores = [], []
-                val_mse_scores, test_mse_scores = [], []
+                train_r2_scores, val_r2_scores, test_r2_scores = [], [], []
+                train_mse_scores, val_mse_scores, test_mse_scores = [], [], []
 
                 for fold_index, (train_index, val_index) in enumerate(
                     kf.split(X_train_full_scaled)
@@ -108,6 +109,14 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                     else:
                         best_est.fit(X_train_opt, y_train)
 
+                    train_r2, train_mse = self.record_predictions(
+                        best_est,
+                        X_train_opt,
+                        y_train,
+                        fs_strategy["name"],
+                        "Training",
+                        fold_index,
+                    )
                     val_r2, val_mse = self.record_predictions(
                         best_est,
                         X_val_opt,
@@ -124,6 +133,9 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                         "Testing",
                         fold_index,
                     )
+
+                    train_r2_scores.append(train_r2)
+                    train_mse_scores.append(train_mse)
 
                     val_r2_scores.append(val_r2)
                     val_mse_scores.append(val_mse)

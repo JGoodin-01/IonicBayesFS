@@ -81,15 +81,18 @@ def plot_PCA_ratio(data):
     figsize=(12, 6),
     ylabel="Variance",
     xlabel="Principal Components",
-    dynamic_params_func=lambda data, variance_threshold, max_components: {
-        "filename": sanitize_filename(f"pca_{variance_threshold}_plot.svg")
+    dynamic_params_func=lambda data, max_components: {
+        "filename": sanitize_filename(f"pca_plot.svg")
     },
     get_image_directory=get_current_image_directory,
 )
-def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwargs):
+def plot_PCA_variance_capture(data, max_components=40, **kwargs):
     explained_variance = define_variance(data).explained_variance_ratio_
     cumulative_variance = np.cumsum(explained_variance)
-    num_components = np.argmax(cumulative_variance >= variance_threshold) + 1
+
+    # Find the number of components for 0.75 & 0.95 variance capture
+    num_components_075 = np.argmax(cumulative_variance >= 0.75) + 1
+    num_components_095 = np.argmax(cumulative_variance >= 0.95) + 1
 
     explained_variance_limited = explained_variance[:max_components]
     cumulative_variance_limited = cumulative_variance[:max_components]
@@ -97,15 +100,28 @@ def plot_PCA_variance_capture(data, variance_threshold, max_components=40, **kwa
     plt.plot(explained_variance_limited, "o-", label="Individual Explained Variance")
     plt.plot(cumulative_variance_limited, "o-", label="Cumulative Explained Variance")
 
-    plt.axhline(y=variance_threshold, color="r", linestyle="--")
+    plt.axhline(y=0.75, color="r", linestyle="--", label="0.75 Variance Threshold")
+    plt.axhline(y=0.95, color="b", linestyle="--", label="0.95 Variance Threshold")
 
-    if num_components <= max_components:
-        plt.axvline(x=num_components - 1, color="g", linestyle="--")
+    if num_components_075 <= max_components:
+        plt.axvline(x=num_components_075 - 1, color="g", linestyle="--")
         plt.text(
-            num_components,  # Slightly offset from the crossing point
-            variance_threshold - 0.1,  # Slightly higher above the crossing point
-            f" {variance_threshold} cut-off\n {num_components} components",
+            num_components_075,  # Slightly offset from the crossing point
+            0.75 - 0.1,  # Slightly higher above the crossing point
+            f" 0.75 cut-off\n {num_components_075} components",
             color="g",
+            fontsize=10,
+            ha="left",  # Horizontal alignment to the left of the point
+            va="bottom",  # Vertical alignment below the point
+        )
+
+    if num_components_095 <= max_components:
+        plt.axvline(x=num_components_095 - 1, color="m", linestyle="--")
+        plt.text(
+            num_components_095,  # Slightly offset from the crossing point
+            0.95 - 0.1,  # Slightly higher above the crossing point
+            f" 0.95 cut-off\n {num_components_095} components",
+            color="m",
             fontsize=10,
             ha="left",  # Horizontal alignment to the left of the point
             va="bottom",  # Vertical alignment below the point
@@ -209,12 +225,7 @@ def main():
     continuous_data = continuous_data[continuous_columns]
 
     plot_PCA_ratio(continuous_data)
-    plot_PCA_variance_capture(
-        continuous_data, variance_threshold=0.95, max_components=30
-    )
-    plot_PCA_variance_capture(
-        continuous_data, variance_threshold=0.75, max_components=30
-    )
+    # plot_PCA_variance_capture(continuous_data, max_components=30)
     plot_feature_variances(continuous_data, n_components=6)
     plot_feature_variances(continuous_data, n_components=25)
 
@@ -223,6 +234,7 @@ def main():
 
     pca_data = pd.read_csv("./data/processed_with_pca.csv")
     plot_correlation_matrix(pca_data)
+    plot_PCA_variance_capture(pca_data, max_components=30)
 
 
 if __name__ == "__main__":

@@ -6,26 +6,26 @@ EXPERIMENT_CONFIGS = [
         "model": LinearRegression,
         "param_grid": [],
     },
-    {
-        "model": Ridge,
-        "param_grid": [
-            Real(0.1, 100.0, prior="log-uniform", name="alpha"),
-            Real(0.0001, 0.01, prior="log-uniform", name="tol"),
-            Categorical([None, 1000, 5000, 10000], name="max_iter"),
-            Categorical([None, 10, 42], name="random_state"),
-            Categorical([True, False], name="positive"),
-        ],
-    },
-    {
-        "model": Lasso,
-        "param_grid": [
-            Real(0.1, 100.0, prior="log-uniform", name="alpha"),
-            Real(0.0001, 0.01, prior="log-uniform", name="tol"),
-            Integer(10000, 15000, name="max_iter"),
-            Categorical([None, 10, 42], name="random_state"),
-            Categorical(["cyclic", "random"], name="selection"),
-        ],
-    },
+    # {
+    #     "model": Ridge,
+    #     "param_grid": [
+    #         Real(0.1, 100.0, prior="log-uniform", name="alpha"),
+    #         Real(0.0001, 0.01, prior="log-uniform", name="tol"),
+    #         Categorical([None, 1000, 5000, 10000], name="max_iter"),
+    #         Categorical([None, 10, 42], name="random_state"),
+    #         Categorical([True, False], name="positive"),
+    #     ],
+    # },
+    # {
+    #     "model": Lasso,
+    #     "param_grid": [
+    #         Real(0.1, 100.0, prior="log-uniform", name="alpha"),
+    #         Real(0.0001, 0.01, prior="log-uniform", name="tol"),
+    #         Integer(10000, 15000, name="max_iter"),
+    #         Categorical([None, 10, 42], name="random_state"),
+    #         Categorical(["cyclic", "random"], name="selection"),
+    #     ],
+    # },
 ]
 
 

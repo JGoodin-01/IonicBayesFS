@@ -3,7 +3,7 @@ import pandas as pd
 
 class ExcelLogger:
     def __init__(self):
-        self.predictions_log = pd.DataFrame()  # Renamed for clarity
+        self.predictions_log = pd.DataFrame()
         self.features_log = pd.DataFrame()
         self.metrics_log = pd.DataFrame()
         self.params_log = pd.DataFrame()

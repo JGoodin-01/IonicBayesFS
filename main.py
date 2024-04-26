@@ -70,4 +70,4 @@ if __name__ == "__main__":
     save_folder = "./post_fe_results/"
     run_training("./data/processed_with_pca.csv", feature_selection_strategies, save_folder)
     
-    run_script("./src/evaluation/model_plots.py")
+    # run_script("./src/evaluation/model_plots.py")
