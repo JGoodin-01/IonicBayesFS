@@ -182,6 +182,7 @@ def plot_mae(data, techniques):
 
 
 @plot_wrapper(
+    figsize=(3.375, 3.375),
     xlabel="Actual",
     ylabel="Predicted",
     scale="log",
@@ -213,6 +214,7 @@ def plot_scatter(data, techniques):
         )
 
     plt.legend(loc="best")
+    plt.tight_layout()
 
 
 @plot_wrapper(
@@ -265,6 +267,7 @@ def plot_feature_importances(feature_data):
 
 
 @plot_wrapper(
+    figsize=(3.375, 3.375),
     xlabel="Predicted",
     ylabel="Residuals",
     filename="Residuals_Plot.svg",
@@ -285,6 +288,54 @@ def plot_residuals(data, technique):
     plt.axhline(y=0, color="r", linestyle="--", linewidth=1)
 
     plt.scatter(data[predicted_column], residuals, color="blue", alpha=0.5)
+    plt.tight_layout()
+
+
+@plot_wrapper(
+    ylabel="R² Score",
+    xlabel="Fold",
+    filename="R2_Scores_By_Phase.svg",
+    get_image_directory=get_current_image_directory,
+)
+def plot_r2_scores(df):
+    """
+    Plot the R² scores for different feature selection methods across folds.
+    Assumes the first column of df contains the compound method-phase-fold information.
+    """
+    # Extract columns
+    df = df.rename(columns={df.columns[0]: "Method_Phase_Fold"})
+    df[["Method", "Phase", "Fold"]] = df["Method_Phase_Fold"].str.rsplit(
+        "_", n=2, expand=True
+    )
+    df["Fold"] = df["Fold"].astype(int)
+    
+    # Create a single plot for both training and testing scores
+    fig, ax = plt.subplots(figsize=(3.375, 3.375))
+
+    # Calculate range and add a buffer
+    r2_range = df['R2'].max() - df['R2'].min()
+    buffer = r2_range * 0.1  # 10% buffer on each side
+    y_min = max(0, df['R2'].min() - buffer)  # Ensure y_min is not below 0
+    y_max = min(1, df['R2'].max() + buffer)  # Ensure y_max is not above 1
+    ax.set_ylim([y_min, y_max])
+
+
+    # Training data plot
+    training_data = df[df['Phase'] == 'Training']
+    sns.lineplot(x='Fold', y='R2', hue='Method', data=training_data, marker='o', ax=ax, linestyle='-')
+
+    # Testing data plot
+    testing_data = df[df['Phase'] == 'Testing']
+    sns.lineplot(x='Fold', y='R2', hue='Method', data=testing_data, marker='s', ax=ax, linestyle='--')
+
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = dict(zip(labels, handles))
+    if len(unique_labels) > 1:
+        ax.legend(unique_labels.values(), unique_labels.keys(), title='Method')
+    else:
+        ax.legend().remove()
+
+    plt.tight_layout()
 
 
 def main():
@@ -306,7 +357,6 @@ def main():
                         )
                         if not os.path.exists(IMAGE_DIRECTORY):
                             os.makedirs(IMAGE_DIRECTORY)
-                        print(f"Processing file: {file_path}")
 
                         try:
                             pred_data = pd.read_excel(
@@ -342,6 +392,10 @@ def main():
                             for technique in techniques:
                                 plot_residuals(pred_data, technique)
 
+                            metric_data = pd.read_excel(file_path, sheet_name="Metrics")
+                            plot_r2_scores(metric_data)
+
+                            # Extract the feature importance data if it exists
                             if "post_fe" in results_directory:
                                 feature_data = pd.read_excel(
                                     file_path, sheet_name="Features"
