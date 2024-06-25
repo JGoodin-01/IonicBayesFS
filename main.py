@@ -50,9 +50,9 @@ def run_training(
 
 if __name__ == "__main__":
     # Run pre-training scripts
-    # run_script("./src/preprocessing/preprocess.py")
-    # run_script("./src/preprocessing/PCAs.py")
-    # run_script("./src/evaluation/dataset_plots.py")
+    run_script("./src/preprocessing/preprocess.py")
+    run_script("./src/preprocessing/PCAs.py")
+    run_script("./src/evaluation/dataset_plots.py")
 
     # Run training & evaluation
     feature_selection_strategies = [
