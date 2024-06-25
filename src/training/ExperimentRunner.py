@@ -47,6 +47,8 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
             kf = KFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
             self.opt.configure_search_space(model_details)
             for fs_strategy in feature_selection_strategies:
+                self.logger.start_timer()  # Start timer for the feature selection strategy
+
                 train_r2_scores, val_r2_scores, test_r2_scores = [], [], []
                 train_mse_scores, val_mse_scores, test_mse_scores = [], [], []
 
@@ -159,6 +161,17 @@ class ExperimentRunner(DataPrepperMixin, FeatureSelectionMixin):
                     [fs_strategy["name"], "Testing", test_avg_r2, test_avg_mse],
                 ]
                 print(tabulate(rows, headers=headers, tablefmt="grid"))
+
+                elapsed_time = (
+                    self.logger.stop_timer()
+                )  # End timer for the feature selection strategy
+                if elapsed_time is not None:
+                    self.logger.log_timing(
+                        fs_strategy["name"], model_name, elapsed_time
+                    )
+                    print(
+                        f"Time taken for {fs_strategy['name']} with {model_name}: {elapsed_time:.2f} seconds"
+                    )
 
             self.logger.save_logs(f"{model().__class__.__name__}_results.xlsx")
             self.reset_experiment()

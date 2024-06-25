@@ -1,15 +1,20 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 from sklearn.decomposition import PCA
 import warnings
 from tabulate import tabulate
+
+PROCESSED_FILE_PATH = "./data/processed.csv"
+PCA_FILE_PATH = "./data/processed_with_pca.csv"
+PCA_LOADINGS_FILE_PATH = "./data/pca_loadings.csv"
 
 # Suppress specific sklearn warnings
 warnings.filterwarnings(
     "ignore", message="X has feature names, but PCA was fitted without feature names"
 )
 
-data = pd.read_csv("./data/processed.csv")
+data = pd.read_csv(PROCESSED_FILE_PATH)
 
 # Define the feature groups based on their chemical or functional properties
 feature_groups = {
@@ -39,6 +44,8 @@ def perform_pca(features):
     group_data = data[features]
     scaler = StandardScaler()
     scaled_group_data = pd.DataFrame(scaler.fit_transform(group_data), columns=group_data.columns)
+    imputer = SimpleImputer(strategy='median')
+    scaled_group_data = pd.DataFrame(imputer.fit_transform(scaled_group_data), columns=group_data.columns)
     pca = PCA(n_components=0.95)
     pca.fit(scaled_group_data)
     return pca, scaled_group_data, pca.components_
@@ -68,7 +75,7 @@ if __name__ == "__main__":
 
     # Concatenate all loadings into a single DataFrame and save
     all_loadings = pd.concat(loadings_dfs)
-    all_loadings.to_csv("./data/pca_loadings.csv")
+    all_loadings.to_csv(PCA_LOADINGS_FILE_PATH)
 
     for group_name, features in feature_groups.items():
         data.drop(columns=features, inplace=True)
@@ -79,5 +86,5 @@ if __name__ == "__main__":
     print(f"Total output features w/ PCAs: {output_features}")
 
     # Save the modified dataset and the PCA features
-    data.to_csv("./data/processed_with_pca.csv", index=False)
+    data.to_csv(PCA_FILE_PATH, index=False)
     print("Data and PCA loadings have been saved.")

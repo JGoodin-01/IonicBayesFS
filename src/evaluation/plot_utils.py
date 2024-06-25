@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 ## Decorator for plotting functions
 def plot_wrapper(
-    figsize=(8, 6),
+    figsize=(3.375, 3.375),
     xlabel="",
     ylabel="",
     scale=None,

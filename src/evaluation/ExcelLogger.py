@@ -1,4 +1,5 @@
 import pandas as pd
+import time
 
 
 class ExcelLogger:
@@ -7,8 +8,10 @@ class ExcelLogger:
         self.features_log = pd.DataFrame()
         self.metrics_log = pd.DataFrame()
         self.params_log = pd.DataFrame()
+        self.timing_log = pd.DataFrame()
         self.actual_test_values = None
         self.save_folder = "./"
+        self.start_time = None
 
     def set_save_folder(self, save_folder):
         self.save_folder = save_folder
@@ -67,6 +70,26 @@ class ExcelLogger:
             + [col for col in self.params_log.columns if col != "Strategy_Fold"]
         ]
 
+    def log_timing(self, strategy_name, model_name, elapsed_time):
+        experiment_id = f"{strategy_name}_{model_name}"
+        new_entry = pd.DataFrame({experiment_id: [elapsed_time]})
+        if experiment_id in self.timing_log:
+            self.timing_log[experiment_id].update(new_entry)
+        else:
+            self.timing_log = pd.concat([self.timing_log, new_entry], axis=1)
+
+    def start_timer(self):
+        self.start_time = time.time()
+
+    def stop_timer(self):
+        if self.start_time is not None:
+            elapsed_time = time.time() - self.start_time
+            self.start_time = None
+            return elapsed_time
+        else:
+            print("Timer was not started.")
+            return None
+
     def save_logs(self, filename):
         file_location = f"{self.save_folder}{filename}"
         with pd.ExcelWriter(file_location) as writer:
@@ -80,10 +103,14 @@ class ExcelLogger:
                 self.metrics_log.T.to_excel(writer, sheet_name="Metrics")
             if not self.params_log.empty:
                 self.params_log.to_excel(writer, sheet_name="Parameters")
+            if not self.timing_log.empty:
+                self.timing_log.T.to_excel(writer, sheet_name="Timing")
 
     def clear_logs(self):
         """Reset the logs to their initial empty state."""
         self.predictions_log = pd.DataFrame()
         self.features_log = pd.DataFrame()
         self.metrics_log = pd.DataFrame()
+        self.params_log = pd.DataFrame()
+        self.timing_log = pd.DataFrame()
         self.predictions_log["Actual"] = self.actual_test_values
