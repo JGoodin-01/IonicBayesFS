@@ -1,6 +1,6 @@
 from sklearn.feature_selection import SelectKBest, mutual_info_regression, RFE
 from sklearn.ensemble import RandomForestRegressor
-from src.preprocessing.BFS import BFS
+from src.training.BFS import BFS
 
 class FeatureSelectionMixin:
     @staticmethod

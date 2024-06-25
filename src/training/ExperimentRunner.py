@@ -1,10 +1,10 @@
 import numpy as np
-from src.preprocessing.DataPrepperMixin import DataPrepperMixin
+from src.training.DataPrepperMixin import DataPrepperMixin
 from src.evaluation.ExcelLogger import ExcelLogger
 from src.training.OptimizationManager import OptimizationManager
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import KFold
-from src.preprocessing.FeatureSelectionMixin import FeatureSelectionMixin
+from src.training.FeatureSelectionMixin import FeatureSelectionMixin
 from tabulate import tabulate
 
 
