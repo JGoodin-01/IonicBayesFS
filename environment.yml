@@ -11,4 +11,6 @@ dependencies:
   - pymc
   - seaborn
   - shap
-  - matplotlib-venn
+  - scikit-optimize
+  - tqdm
+  - tabulate

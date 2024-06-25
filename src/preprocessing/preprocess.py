@@ -6,7 +6,6 @@ from rdkit.Chem import Descriptors
 RAW_FILE_PATH = "./data/raw.xlsx"
 PROCESSED_FILE_PATH = "./data/processed.csv"
 
-
 def load_workbook_sheets(file_path):
     # Load specified sheets from an Excel workbook at once
     xl = pd.ExcelFile(file_path)
@@ -25,6 +24,7 @@ def load_workbook_sheets(file_path):
         ],
     )
     return ions_sheet, database_sheet
+
 
 
 def preprocess_ions_sheet(ions_sheet):
@@ -86,14 +86,14 @@ def add_descriptors(processed_df):
     return pd.concat([processed_df, descriptors_df], axis=1)
 
 
-def filter_dataframe(processed_df, threshold=50):
+def filter_dataframe(processed_df, threshold=10):
     """
     Filters input DataFrame via removal of constant & useless features.
     Additionally, rows filtered out by Z-score filtering of a threshold.
 
     Args:
         processed_df (pd.DataFrame): DataFrame of already partially processed data.
-        threshold (int, optional): Threshold as to how far out should data be filtered. Defaults to 50.
+        threshold (int, optional): Threshold as to how far out should data be filtered. Defaults to 10.
 
     Returns:
         pd.DataFrame: Returns filtered DataFrame.
@@ -101,11 +101,11 @@ def filter_dataframe(processed_df, threshold=50):
     # Simplify the DataFrame using vectorized filtering
     columns_to_drop = ["Cation", "Anion", "Excluded IL", "Accepted dataset"]
     processed_df.drop(columns=columns_to_drop, inplace=True)
-
+    
     # Get boolean masks for nunique and value_counts
     nunique_mask = processed_df.nunique() > 1
     value_counts_mask = (
-        processed_df.apply(lambda x: max(x.value_counts(normalize=True))) <= 0.75
+        processed_df.apply(lambda x: max(x.value_counts(normalize=True))) <= 0.85
     )
 
     # Use the boolean masks to filter columns
