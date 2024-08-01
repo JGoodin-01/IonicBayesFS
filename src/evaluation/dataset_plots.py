@@ -175,8 +175,34 @@ def plot_correlation_matrix(data, **kwargs):
     )
     plt.xticks([])
     plt.yticks([])
-    # plt.xticks(rotation=45, ha="right", fontsize=10)
-    # plt.yticks(fontsize=10)
+    plt.tight_layout()
+
+@plot_wrapper(
+    figsize=(6, 6),
+    xlabel="Features",
+    ylabel="Features",
+    dynamic_params_func=lambda data, zoomed_features: {
+        "filename": sanitize_filename(f"{len(zoomed_features)}_correlation_matrix_zoomed.svg")
+    },
+    get_image_directory=get_current_image_directory,
+)
+def plot_zoomed_correlation_matrix(data, zoomed_features, **kwargs):
+    numeric_data = data.select_dtypes(include=[np.number])
+    correlation_matrix = numeric_data.corr()
+
+    zoomed_corr_matrix = correlation_matrix.loc[zoomed_features, zoomed_features]
+
+    sns.heatmap(
+        zoomed_corr_matrix,
+        annot=True,
+        fmt=".2f",
+        cmap="coolwarm",
+        xticklabels=zoomed_features,
+        yticklabels=zoomed_features,
+        cbar=False,
+    )
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.yticks(fontsize=10)
     plt.tight_layout()
 
 def main():
@@ -212,6 +238,10 @@ def main():
 
     IMAGE_DIRECTORY = f"./dataset_images/"
     plot_correlation_matrix(data)
+
+    # Define a list of features to zoom in on
+    zoomed_features = ['η / mPa s', 'T / K', 'Chi0', 'Chi1', 'Chi2v', 'PEOE_VSA1', 'PEOE_VSA10', 'PEOE_VSA11']  # Replace with actual feature names
+    plot_zoomed_correlation_matrix(data, zoomed_features)
 
     pca_data = pd.read_csv("./data/processed_with_pca.csv")
     plot_correlation_matrix(pca_data)

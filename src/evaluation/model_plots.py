@@ -219,7 +219,7 @@ def plot_scatter(data, techniques):
 
 @plot_wrapper(
     xlabel="Average Feature Importance",
-    filename="Feature_Importance.svg",
+    filename=None,  # We'll specify filenames individually
     get_image_directory=get_current_image_directory,
 )
 def plot_feature_importances(feature_data):
@@ -230,40 +230,27 @@ def plot_feature_importances(feature_data):
 
     # Group by technique and calculate average and standard error
     grouped = feature_data.groupby("Technique").mean(numeric_only=True)
-    grouped_sem = feature_data.groupby("Technique").sem(numeric_only=True)
+    grouped_std = feature_data.groupby("Technique").std(numeric_only=True)
 
-    techniques = [tech for tech in grouped.index if "Base" not in tech]
+    techniques = ["BFS", "RFE", "SelectKBest"]
 
-    if len(techniques) == 1:
-        technique = techniques[0]
+    for technique in techniques:
+        fig, ax = plt.subplots(figsize=(4.5, 4.25))
         top_features = grouped.loc[technique].nsmallest(20)
-        top_sems = grouped_sem.loc[technique][top_features.index]
-        top_features.plot(kind="barh", xerr=top_sems, color="skyblue")
-        plt.gca().invert_yaxis()
-        plt.title(f"{technique}")
-        plt.tight_layout()
-    else:
-        nrows = int(np.ceil(np.sqrt(len(techniques))))
-        ncols = int(np.ceil(len(techniques) / nrows))
-
-        fig, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows)
-        )
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-
-        for i, technique in enumerate(techniques):
-            ax = axes.flatten()[i]
-            top_features = grouped.loc[technique].nsmallest(20)
-            top_sems = grouped_sem.loc[technique][top_features.index]
-            top_features.plot(kind="barh", xerr=top_sems, color="skyblue", ax=ax)
-            ax.invert_yaxis()
-            ax.set_title(f"{technique}")
-            ax.set_xlabel("Average Feature Importance")
-
-        for j in range(i + 1, nrows * ncols):
-            fig.delaxes(axes.flatten()[j])
-
-        plt.tight_layout()
+        top_sems = grouped_std.loc[technique][top_features.index]
+        top_features.plot(kind="barh", xerr=top_sems, color="skyblue", ax=ax)
+        ax.invert_yaxis()
+        ax.set_title(f"{technique}", fontsize=14)
+        ax.set_xlabel("Average Importance", fontsize=12)
+        ax.tick_params(axis="both", which="major", labelsize=10)
+        
+        ax.xlim = (0, 25)
+        # Save each figure with an appropriate filename
+        filename = f"Feature_Importance_{technique}.svg"
+        fig.tight_layout()
+        image_directory = get_current_image_directory()
+        fig.savefig(os.path.join(image_directory, filename))
+        plt.close(fig)
 
 
 @plot_wrapper(
@@ -308,30 +295,45 @@ def plot_r2_scores(df):
         "_", n=2, expand=True
     )
     df["Fold"] = df["Fold"].astype(int)
-    
+
     # Create a single plot for both training and testing scores
     fig, ax = plt.subplots(figsize=(3.375, 3.375))
 
     # Calculate range and add a buffer
-    r2_range = df['R2'].max() - df['R2'].min()
+    r2_range = df["R2"].max() - df["R2"].min()
     buffer = r2_range * 0.1  # 10% buffer on each side
-    y_min = max(0, df['R2'].min() - buffer)  # Ensure y_min is not below 0
-    y_max = min(1, df['R2'].max() + buffer)  # Ensure y_max is not above 1
+    y_min = max(0, df["R2"].min() - buffer)  # Ensure y_min is not below 0
+    y_max = min(1, df["R2"].max() + buffer)  # Ensure y_max is not above 1
     ax.set_ylim([y_min, y_max])
 
-
     # Training data plot
-    training_data = df[df['Phase'] == 'Training']
-    sns.lineplot(x='Fold', y='R2', hue='Method', data=training_data, marker='o', ax=ax, linestyle='-')
+    training_data = df[df["Phase"] == "Training"]
+    sns.lineplot(
+        x="Fold",
+        y="R2",
+        hue="Method",
+        data=training_data,
+        marker="o",
+        ax=ax,
+        linestyle="-",
+    )
 
     # Testing data plot
-    testing_data = df[df['Phase'] == 'Testing']
-    sns.lineplot(x='Fold', y='R2', hue='Method', data=testing_data, marker='s', ax=ax, linestyle='--')
+    testing_data = df[df["Phase"] == "Testing"]
+    sns.lineplot(
+        x="Fold",
+        y="R2",
+        hue="Method",
+        data=testing_data,
+        marker="s",
+        ax=ax,
+        linestyle="--",
+    )
 
     handles, labels = ax.get_legend_handles_labels()
     unique_labels = dict(zip(labels, handles))
     if len(unique_labels) > 1:
-        ax.legend(unique_labels.values(), unique_labels.keys(), title='Method')
+        ax.legend(unique_labels.values(), unique_labels.keys(), title="Method")
     else:
         ax.legend().remove()
 

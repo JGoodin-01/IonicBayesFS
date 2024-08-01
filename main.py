@@ -50,24 +50,24 @@ def run_training(
 
 if __name__ == "__main__":
     # Run pre-training scripts
-    run_script("./src/preprocessing/preprocess.py")
-    run_script("./src/preprocessing/PCAs.py")
+    # run_script("./src/preprocessing/preprocess.py")
+    # run_script("./src/preprocessing/PCAs.py")
     run_script("./src/evaluation/dataset_plots.py")
 
-    # Run training & evaluation
-    feature_selection_strategies = [
-        {"name": "Base"},
-        {"name": "SelectKBest"},
-        {"name": "RFE"},
-        {"name": "BFS"},
-    ]
+    # # Run training & evaluation
+    # feature_selection_strategies = [
+    #     {"name": "Base"},
+    #     # {"name": "SelectKBest"},
+    #     # {"name": "RFE"},
+    #     # {"name": "BFS"},
+    # ]
 
-    # Pre feature engineering & selection
-    save_folder = "./pre_fe_results/"
-    run_training("./data/processed.csv", feature_selection_strategies, save_folder)
+    # # Pre feature engineering & selection
+    # save_folder = "./pre_fe_results/"
+    # run_training("./data/processed.csv", feature_selection_strategies, save_folder)
 
-    # Post feature engineering & selection
-    save_folder = "./post_fe_results/"
-    run_training("./data/processed_with_pca.csv", feature_selection_strategies, save_folder)
+    # # Post feature engineering & selection
+    # save_folder = "./post_fe_results/"
+    # run_training("./data/processed_with_pca.csv", feature_selection_strategies, save_folder)
     
-    run_script("./src/evaluation/model_plots.py")
+    # run_script("./src/evaluation/model_plots.py")

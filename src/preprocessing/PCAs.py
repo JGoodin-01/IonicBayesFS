@@ -56,7 +56,8 @@ def extract_components(group_name, pca_model, scaled_group_data, components):
     principal_components = pca_model.transform(scaled_group_data)[:, :n_components]
     component_names = [f"{group_name}_PC{i+1}" for i in range(n_components)]
     loadings_df = pd.DataFrame(components[:n_components, :], index=component_names, columns=scaled_group_data.columns)
-    return pd.DataFrame(principal_components, columns=component_names), loadings_df, n_components
+    explained_variance = pca_model.explained_variance_ratio_[:n_components].sum()
+    return pd.DataFrame(principal_components, columns=component_names), loadings_df, n_components, explained_variance
 
 if __name__ == "__main__":
     pca_features = pd.DataFrame()
@@ -66,10 +67,11 @@ if __name__ == "__main__":
 
     for group_name, features in feature_groups.items():
         pca_model, scaled_group_data, components = perform_pca(features)
-        pca_components, loadings_df, n_components = extract_components(group_name, pca_model, scaled_group_data, components)
+        pca_components, loadings_df, n_components, explained_variance = extract_components(group_name, pca_model, scaled_group_data, components)
         pca_features = pd.concat([pca_features, pca_components], axis=1)
         loadings_dfs.append(loadings_df)
-        feature_details.append([group_name, len(features), n_components])
+        overall_variance_explained = explained_variance * (len(features) / data.shape[1])
+        feature_details.append([group_name, len(features), n_components, overall_variance_explained])
         input_features += len(features)
         output_features += n_components
 
@@ -81,7 +83,7 @@ if __name__ == "__main__":
         data.drop(columns=features, inplace=True)
         data = pd.concat([data, pca_features.filter(regex=f"^{group_name}_PC")], axis=1)
 
-    print(tabulate(feature_details, headers=['Group Name', 'Original Features', 'PCA Features'], tablefmt='grid'))
+    print(tabulate(feature_details, headers=['Group Name', 'Original Features', 'PCA Features', '% Variance Explained of Overall Dataset'], tablefmt='grid'))
     print(f"Total input features: {input_features}")
     print(f"Total output features w/ PCAs: {output_features}")
 
